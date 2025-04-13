@@ -486,6 +486,12 @@ export default function DashboardPage() {
                       value={createGuestNameInput}
                       onChange={(e) => setCreateGuestNameInput(e.target.value)}
                       disabled={isSubmittingGroup}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddCreateGuest();
+                        }
+                      }}
                     />
                     <Button 
                       type="button" 
@@ -534,7 +540,7 @@ export default function DashboardPage() {
             <AlertDialogTitle>Are you sure you want to delete this group?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the group 
-              &quot;{groupToDelete?.name}&quot; and all associated match data.
+              "{groupToDelete?.name}" and all associated match data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -556,7 +562,7 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle>Manage Group Members</DialogTitle>
             <DialogDescription>
-              Add or remove members from &quot;{groupToManage?.name}&quot;.
+              Add or remove members from "{groupToManage?.name}".
             </DialogDescription>
           </DialogHeader>
 
@@ -605,6 +611,12 @@ export default function DashboardPage() {
                     value={manageGuestNameInput}
                     onChange={(e) => setManageGuestNameInput(e.target.value)}
                     disabled={isManagingMembers}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddManageGuest();
+                      }
+                    }}
                   />
                   <Button
                     type="button"

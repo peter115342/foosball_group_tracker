@@ -117,7 +117,16 @@ type MatchFormInputs = {
     playedAt: string; // ISO string from datetime-local input
 };
 
-// --- Helper Function ---
+// --- Helper Functions ---
+const formatAdminDisplayName = (fullName: string | null | undefined): string => {
+    if (!fullName) return 'N/A';
+    const parts = fullName.trim().split(' ');
+    if (parts.length <= 1) return fullName;
+    const firstParts = parts.slice(0, -1).join(' ');
+    const lastInitial = parts[parts.length - 1].charAt(0);
+    return `${firstParts} ${lastInitial}.`;
+};
+
 const formatTimestampForInput = (timestamp: Timestamp | undefined): string => {
     if (!timestamp) return '';
     const date = timestamp.toDate();
@@ -455,7 +464,7 @@ export default function GroupDetailPage() {
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span>Team 1: <span className="inline-block h-4 w-4 rounded-full border" style={{ backgroundColor: group.teamColors.teamOne }}></span></span>
                     <span>Team 2: <span className="inline-block h-4 w-4 rounded-full border" style={{ backgroundColor: group.teamColors.teamTwo }}></span></span>
-                    {group.adminName && <span className="ml-auto">Admin: {group.adminName}</span>}
+                    {group.adminName && <span className="ml-auto">Admin: {formatAdminDisplayName(group.adminName)}</span>}
                 </div>
             </header>
 
@@ -738,4 +747,3 @@ export default function GroupDetailPage() {
         </div>
     );
 }
-
