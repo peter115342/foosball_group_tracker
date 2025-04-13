@@ -94,16 +94,13 @@ export default function DashboardPage() {
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
 
-  // State for Create Group Dialog Guests
   const [createGuestNameInput, setCreateGuestNameInput] = useState('');
   const [createGuestMembers, setCreateGuestMembers] = useState<string[]>([]);
 
-  // State for Delete Group Dialog
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<GroupDoc | null>(null);
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
 
-  // State for Manage Members Dialog
   const [isManageMembersDialogOpen, setIsManageMembersDialogOpen] = useState(false);
   const [groupToManage, setGroupToManage] = useState<GroupDoc | null>(null);
   const [manageGuestNameInput, setManageGuestNameInput] = useState('');
@@ -292,7 +289,7 @@ export default function DashboardPage() {
 
        try {
            const groupRef = doc(db, "groups", groupToManage.id);
-           const updateData: { [key: string]: any } = {
+           const updateData: { [key: string]: string[] | ReturnType<typeof deleteField> } = {
                guests: currentGuests
            };
 
@@ -540,7 +537,7 @@ export default function DashboardPage() {
             <AlertDialogTitle>Are you sure you want to delete this group?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the group 
-              "{groupToDelete?.name}" and all associated match data.
+              &quot;{groupToDelete?.name}&quot; and all associated match data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -562,7 +559,7 @@ export default function DashboardPage() {
           <DialogHeader>
             <DialogTitle>Manage Group Members</DialogTitle>
             <DialogDescription>
-              Add or remove members from "{groupToManage?.name}".
+              Add or remove members from &quot;{groupToManage?.name}&quot;.
             </DialogDescription>
           </DialogHeader>
 

@@ -18,7 +18,7 @@ import {
     updateDoc,
     serverTimestamp,
     Timestamp,
-    getDoc // Import getDoc if you implement real user fetching later
+    // getDoc // Import getDoc if you implement real user fetching later
 } from 'firebase/firestore';
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
 import { Button } from '@/components/ui/button';
@@ -157,6 +157,7 @@ export default function GroupDetailPage() {
     const [matchToDelete, setMatchToDelete] = useState<string | null>(null);
     const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<MatchFormInputs>({
         defaultValues: {
             gameType: '1v1',
@@ -198,21 +199,21 @@ export default function GroupDetailPage() {
 
                     // Extract authenticated members
                     const fetchedMembers: Member[] = Object.entries(groupData.members)
-                        .filter(([uid, memberData]) => memberData.isMember) // Ensure they are actual members
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                        .filter(([uid, memberData]) => memberData.isMember)
                         .map(([uid, memberData]) => ({
                             uid: uid,
-                            displayName: memberData.name || `User ${uid.substring(0, 5)}` // Use stored name or fallback
+                            displayName: memberData.name || `User ${uid.substring(0, 5)}`
                         }));
                     setMembers(fetchedMembers);
 
-                    // Create combined list for dropdowns
                     const guests: SelectablePlayer[] = (groupData.guests || []).map(guestName => ({
-                        uid: `${GUEST_PREFIX}${guestName}`, // Create unique guest ID
-                        displayName: `${guestName} (Guest)` // Add suffix for clarity
+                        uid: `${GUEST_PREFIX}${guestName}`,
+                        displayName: `${guestName} (Guest)`
                     }));
 
                     const combinedPlayers = [...fetchedMembers, ...guests].sort((a, b) =>
-                        a.displayName.localeCompare(b.displayName) // Sort alphabetically
+                        a.displayName.localeCompare(b.displayName)
                     );
                     setSelectablePlayers(combinedPlayers);
                 }
@@ -264,7 +265,7 @@ export default function GroupDetailPage() {
         if (editingMatch && group) {
             reset({
                 gameType: editingMatch.gameType,
-                team1Player1: editingMatch.team1.players[0]?.uid ?? '', // uid might be guest_...
+                team1Player1: editingMatch.team1.players[0]?.uid ?? '',
                 team1Player2: editingMatch.team1.players[1]?.uid ?? '',
                 team2Player1: editingMatch.team2.players[0]?.uid ?? '',
                 team2Player2: editingMatch.team2.players[1]?.uid ?? '',
