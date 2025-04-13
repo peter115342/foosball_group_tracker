@@ -6,6 +6,7 @@ import { useAuth } from '@/context/authContext';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { v4 as uuidv4 } from 'uuid';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,15 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from "@/components/ui/dialog";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -33,24 +25,24 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useForm, SubmitHandler } from "react-hook-form";
+//import { Label } from "@/components/ui/label";
 import { db } from '@/lib/firebase/config';
-import { collection, addDoc, serverTimestamp, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc, updateDoc, deleteField } from "firebase/firestore";
+import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc, updateDoc, deleteField } from "firebase/firestore";
 import { X, Trash2, UserPlus, Users } from 'lucide-react';
 import { toast } from "sonner";
-
-type GroupFormInputs = {
-  groupName: string;
-  teamOneColor: string;
-  teamTwoColor: string;
-};
+import GroupFormDialog from '@/components/groups/GroupFormDialog';
 
 interface MemberData {
     name: string;
     isMember: boolean;
     isAdmin?: boolean;
+}
+
+interface GuestData {
+    id: string;
+    name: string;
 }
 
 interface GroupDoc extends DocumentData {
@@ -59,23 +51,12 @@ interface GroupDoc extends DocumentData {
     adminUid: string;
     adminName?: string;
     members: { [uid: string]: MemberData };
-    guests?: string[];
+    guests?: GuestData[] | string[];
     teamColors: {
         teamOne: string;
         teamTwo: string;
     };
 }
-
-const predefinedColors = [
-  { name: 'Red', hex: '#FF0000' },
-  { name: 'Blue', hex: '#0000FF' },
-  { name: 'Green', hex: '#008000' },
-  { name: 'Yellow', hex: '#FFFF00' },
-  { name: 'Orange', hex: '#FFA500' },
-  { name: 'Purple', hex: '#800080' },
-  { name: 'Black', hex: '#000000' },
-  { name: 'White', hex: '#FFFFFF' },
-];
 
 const formatAdminDisplayName = (fullName: string | null | undefined): string => {
   if (!fullName) return 'N/A';
@@ -90,12 +71,8 @@ export default function DashboardPage() {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
-  const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
-
-  const [createGuestNameInput, setCreateGuestNameInput] = useState('');
-  const [createGuestMembers, setCreateGuestMembers] = useState<string[]>([]);
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<GroupDoc | null>(null);
@@ -104,21 +81,9 @@ export default function DashboardPage() {
   const [isManageMembersDialogOpen, setIsManageMembersDialogOpen] = useState(false);
   const [groupToManage, setGroupToManage] = useState<GroupDoc | null>(null);
   const [manageGuestNameInput, setManageGuestNameInput] = useState('');
-  const [currentGuests, setCurrentGuests] = useState<string[]>([]);
+  const [currentGuests, setCurrentGuests] = useState<GuestData[]>([]);
   const [membersToRemove, setMembersToRemove] = useState<string[]>([]); 
   const [isManagingMembers, setIsManagingMembers] = useState(false);
-
-
-  const { register: registerCreate, handleSubmit: handleCreateSubmit, reset: resetCreate, formState: { errors: createErrors }, setValue: setCreateValue, watch: watchCreate } = useForm<GroupFormInputs>({
-      defaultValues: {
-          groupName: "",
-          teamOneColor: "#FF0000",
-          teamTwoColor: "#0000FF",
-      }
-  });
-
-  const watchedTeamOneColor = watchCreate('teamOneColor');
-  const watchedTeamTwoColor = watchCreate('teamTwoColor');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -153,82 +118,39 @@ export default function DashboardPage() {
   }, [user, loading]);
 
   useEffect(() => {
-     if (!isCreateGroupOpen) {
-         setCreateGuestMembers([]);
-         setCreateGuestNameInput('');
-         resetCreate();
-     }
-   }, [isCreateGroupOpen, resetCreate]);
-
-   useEffect(() => {
-       if (isManageMembersDialogOpen && groupToManage) {
-           setCurrentGuests(groupToManage.guests || []);
-           setMembersToRemove([]);
-           setManageGuestNameInput('');
-       } else {
-           setGroupToManage(null);
-           setCurrentGuests([]);
-           setMembersToRemove([]);
-           setManageGuestNameInput('');
-       }
-   }, [isManageMembersDialogOpen, groupToManage]);
-
-
-  const handleAddCreateGuest = () => {
-    const trimmedName = createGuestNameInput.trim();
-    if (trimmedName && !createGuestMembers.includes(trimmedName)) {
-      setCreateGuestMembers([...createGuestMembers, trimmedName]);
-      setCreateGuestNameInput('');
-    } else if (createGuestMembers.includes(trimmedName)) {
-        toast.warning("Guest already added.");
+    if (isManageMembersDialogOpen && groupToManage) {
+        // Convert existing guests to the new format with IDs if needed
+        const guests = groupToManage.guests || [];
+        const guestsWithIds: GuestData[] = Array.isArray(guests) 
+            ? guests.map(guest => {
+                // Handle string format (backward compatibility)
+                if (typeof guest === 'string') {
+                    return { id: uuidv4(), name: guest };
+                } 
+                // Handle object format
+                else if (typeof guest === 'object' && guest !== null) {
+                    // Check if the object has id and name properties
+                    const tempGuest = guest as unknown as { id?: string; name?: string };
+                    return { 
+                        id: typeof tempGuest.id === 'string' ? tempGuest.id : uuidv4(), 
+                        name: typeof tempGuest.name === 'string' ? tempGuest.name : ''
+                    };
+                }
+                // Fallback case
+                return { id: uuidv4(), name: String(guest) };
+            })
+            : [];
+            
+        setCurrentGuests(guestsWithIds);
+        setMembersToRemove([]);
+        setManageGuestNameInput('');
+    } else {
+        setGroupToManage(null);
+        setCurrentGuests([]);
+        setMembersToRemove([]);
+        setManageGuestNameInput('');
     }
-  };
-
-  const handleRemoveCreateGuest = (guestToRemove: string) => {
-    setCreateGuestMembers(createGuestMembers.filter(name => name !== guestToRemove));
-  };
-
-  const handleCreateGroup: SubmitHandler<GroupFormInputs> = async (data) => {
-    if (!user) {
-      toast.error("User not logged in.");
-      return;
-    }
-    setIsSubmittingGroup(true);
-    try {
-      const groupsCollectionRef = collection(db, "groups");
-
-      const fullAdminName = user.displayName || `Admin_${user.uid.substring(0, 5)}`;
-      const memberFirstName = user.displayName?.split(' ')[0] || `Admin_${user.uid.substring(0, 5)}`;
-
-      const membersMap: { [key: string]: MemberData } = {};
-      membersMap[user.uid] = {
-          name: memberFirstName,
-          isMember: true,
-          isAdmin: true
-      };
-
-      const newGroupData = {
-        name: data.groupName,
-        adminUid: user.uid,
-        adminName: fullAdminName,
-        createdAt: serverTimestamp(),
-        members: membersMap,
-        guests: createGuestMembers,
-        teamColors: {
-          teamOne: data.teamOneColor,
-          teamTwo: data.teamTwoColor,
-        },
-      };
-      await addDoc(groupsCollectionRef, newGroupData);
-      toast.success("Group created successfully!");
-      setIsCreateGroupOpen(false);
-    } catch (error) {
-      console.error("Error creating group:", error);
-      toast.error("Error creating group", { description: (error as Error).message });
-    } finally {
-      setIsSubmittingGroup(false);
-    }
-  };
+  }, [isManageMembersDialogOpen, groupToManage]);
 
   const handleOpenDeleteDialog = (group: GroupDoc) => {
       setGroupToDelete(group);
@@ -255,64 +177,92 @@ export default function DashboardPage() {
       }
   };
 
-   const handleOpenManageMembersDialog = (group: GroupDoc) => {
-       setGroupToManage(group);
-       setIsManageMembersDialogOpen(true);
-   };
+  const handleOpenManageMembersDialog = (group: GroupDoc) => {
+      setGroupToManage(group);
+      setIsManageMembersDialogOpen(true);
+  };
 
-   const handleToggleMemberRemoval = (uid: string) => {
-       setMembersToRemove(prev =>
-           prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
-       );
-   };
+  const handleToggleMemberRemoval = (uid: string) => {
+      setMembersToRemove(prev =>
+          prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
+      );
+  };
 
-   const handleAddManageGuest = () => {
-       const trimmedName = manageGuestNameInput.trim();
-       if (trimmedName && !currentGuests.includes(trimmedName)) {
-           setCurrentGuests([...currentGuests, trimmedName]);
-           setManageGuestNameInput('');
-       } else if (currentGuests.includes(trimmedName)) {
-           toast.warning("Guest already added.");
-       }
-   };
+  const handleAddManageGuest = () => {
+      const trimmedName = manageGuestNameInput.trim();
+      if (trimmedName) {
+          // Check if a guest with this name already exists
+          const existingGuest = currentGuests.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
+          
+          if (!existingGuest) {
+              // Generate a unique ID for the guest
+              const guestId = uuidv4();
+              setCurrentGuests([...currentGuests, { id: guestId, name: trimmedName }]);
+              setManageGuestNameInput('');
+          } else {
+              toast.warning("Guest with this name already exists.");
+          }
+      }
+  };
 
-   const handleRemoveManageGuest = (guestToRemove: string) => {
-       setCurrentGuests(currentGuests.filter(name => name !== guestToRemove));
-   };
+  const handleRemoveManageGuest = (guestIdToRemove: string) => {
+      setCurrentGuests(currentGuests.filter(guest => guest.id !== guestIdToRemove));
+  };
 
-   const handleSaveChanges = async () => {
-       if (!groupToManage || !user || user.uid !== groupToManage.adminUid) {
-           toast.error("Unauthorized or group not selected.");
-           return;
-       }
-       setIsManagingMembers(true);
+  const handleSaveChanges = async () => {
+      if (!groupToManage || !user || user.uid !== groupToManage.adminUid) {
+          toast.error("Unauthorized or group not selected.");
+          return;
+      }
+      setIsManagingMembers(true);
 
-       try {
-           const groupRef = doc(db, "groups", groupToManage.id);
-           const updateData: { [key: string]: string[] | ReturnType<typeof deleteField> } = {
-               guests: currentGuests
-           };
+      try {
+          const groupRef = doc(db, "groups", groupToManage.id);
+          // Define a more specific type for updateData
+          const updateData: { 
+              guests: GuestData[]; 
+              [key: string]: GuestData[] | ReturnType<typeof deleteField> 
+          } = {
+              guests: currentGuests
+          };
 
-           membersToRemove.forEach(uid => {
-               updateData[`members.${uid}`] = deleteField();
-           });
+          membersToRemove.forEach(uid => {
+              updateData[`members.${uid}`] = deleteField();
+          });
 
-           if (Object.keys(updateData).length > 1 || JSON.stringify(currentGuests) !== JSON.stringify(groupToManage.guests || [])) {
-                await updateDoc(groupRef, updateData);
-                toast.success(`Members and guests updated for "${groupToManage.name}".`);
-           } else {
-               toast.info("No changes detected.");
-           }
+          // Compare if the guest list has actually changed
+          const originalGuests = groupToManage.guests || [];
+          const guestsChanged = currentGuests.length !== originalGuests.length || 
+              currentGuests.some((guest, i) => {
+                  if (i >= originalGuests.length) return true;
+                  
+                  const origGuest = originalGuests[i];
+                  if (typeof origGuest === 'string') {
+                      return guest.name !== origGuest;
+                  } else if (typeof origGuest === 'object' && origGuest !== null) {
+                      // Safely check name property using a temporary type casting
+                      const tempGuest = origGuest as unknown as { name?: string };
+                      return typeof tempGuest.name === 'string' ? guest.name !== tempGuest.name : true;
+                  }
+                  return true;
+              });
+              
+          if (Object.keys(updateData).length > 1 || guestsChanged) {
+               await updateDoc(groupRef, updateData);
+               toast.success(`Members and guests updated for "${groupToManage.name}".`);
+          } else {
+              toast.info("No changes detected.");
+          }
 
-           setIsManageMembersDialogOpen(false);
+          setIsManageMembersDialogOpen(false);
 
-       } catch (error) {
-           console.error("Error updating members/guests:", error);
-           toast.error("Error updating group", { description: (error as Error).message });
-       } finally {
-           setIsManagingMembers(false);
-       }
-   };
+      } catch (error) {
+          console.error("Error updating members/guests:", error);
+          toast.error("Error updating group", { description: (error as Error).message });
+      } finally {
+          setIsManagingMembers(false);
+      }
+  };
 
   if (loading || !user) {
     return (
@@ -397,138 +347,14 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Create Group Dialog */}
-      <Dialog open={isCreateGroupOpen} onOpenChange={setIsCreateGroupOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Create New Group</DialogTitle>
-            <DialogDescription>
-              Create a new foosball group to track matches with friends or colleagues.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreateSubmit(handleCreateGroup)}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="groupName" className="text-right">Group Name</Label>
-                <Input 
-                  id="groupName" 
-                  className="col-span-3"
-                  {...registerCreate("groupName", { required: "Group name is required" })}
-                  disabled={isSubmittingGroup}
-                />
-                {createErrors.groupName && (
-                  <p className="col-span-4 text-right text-sm text-red-500">{createErrors.groupName.message}</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="teamOneColor" className="text-right">Team 1 Color</Label>
-                <div className="col-span-3 flex gap-2">
-                  <Input 
-                    id="teamOneColor" 
-                    type="color"
-                    className="w-12 h-10 p-1 cursor-pointer"
-                    {...registerCreate("teamOneColor")}
-                    disabled={isSubmittingGroup}
-                  />
-                  <div className="flex flex-wrap gap-1 flex-1">
-                    {predefinedColors.map(color => (
-                      <button
-                        key={color.name}
-                        type="button"
-                        title={color.name}
-                        className={`w-6 h-6 rounded-full border ${watchedTeamOneColor === color.hex ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
-                        style={{ backgroundColor: color.hex }}
-                        onClick={() => setCreateValue("teamOneColor", color.hex)}
-                        disabled={isSubmittingGroup}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="teamTwoColor" className="text-right">Team 2 Color</Label>
-                <div className="col-span-3 flex gap-2">
-                  <Input 
-                    id="teamTwoColor" 
-                    type="color"
-                    className="w-12 h-10 p-1 cursor-pointer"
-                    {...registerCreate("teamTwoColor")}
-                    disabled={isSubmittingGroup}
-                  />
-                  <div className="flex flex-wrap gap-1 flex-1">
-                    {predefinedColors.map(color => (
-                      <button
-                        key={color.name}
-                        type="button"
-                        title={color.name}
-                        className={`w-6 h-6 rounded-full border ${watchedTeamTwoColor === color.hex ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
-                        style={{ backgroundColor: color.hex }}
-                        onClick={() => setCreateValue("teamTwoColor", color.hex)}
-                        disabled={isSubmittingGroup}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-4 items-start gap-4 mt-2">
-                <Label className="text-right pt-2">Guest Players</Label>
-                <div className="col-span-3 space-y-3">
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="Add guest name"
-                      value={createGuestNameInput}
-                      onChange={(e) => setCreateGuestNameInput(e.target.value)}
-                      disabled={isSubmittingGroup}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddCreateGuest();
-                        }
-                      }}
-                    />
-                    <Button 
-                      type="button" 
-                      onClick={handleAddCreateGuest} 
-                      disabled={!createGuestNameInput.trim() || isSubmittingGroup}
-                    >
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {createGuestMembers.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {createGuestMembers.map(guest => (
-                        <div key={guest} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm">
-                          {guest}
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm" 
-                            className="p-0 h-auto ml-1" 
-                            onClick={() => handleRemoveCreateGuest(guest)}
-                            disabled={isSubmittingGroup}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={isSubmittingGroup}>
-                {isSubmittingGroup ? 'Creating...' : 'Create Group'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Use the new GroupFormDialog component */}
+      {user && (
+        <GroupFormDialog
+          isOpen={isCreateGroupOpen}
+          onOpenChange={setIsCreateGroupOpen}
+          user={user}
+        />
+      )}
 
       {/* Delete Group Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -627,14 +453,14 @@ export default function DashboardPage() {
                 {currentGuests.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {currentGuests.map(guest => (
-                      <div key={guest} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm">
-                        {guest}
+                      <div key={guest.id} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm">
+                        {guest.name}
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           className="p-0 h-auto ml-1"
-                          onClick={() => handleRemoveManageGuest(guest)}
+                          onClick={() => handleRemoveManageGuest(guest.id)}
                           disabled={isManagingMembers}
                         >
                           <X className="h-3 w-3" />

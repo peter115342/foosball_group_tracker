@@ -120,3 +120,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+
+
+
+/* Foosball table responsive styles */
+@media (max-width: 480px) {
+  .player-position {
+    padding: 4px !important;
+    max-width: 120px !important;
+  }
+
+  .player-position span {
+    font-size: 0.6rem !important;
+  }
+}

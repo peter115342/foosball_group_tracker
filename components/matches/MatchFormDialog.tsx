@@ -1,0 +1,656 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useForm, SubmitHandler, Controller } from "react-hook-form";
+import { addDoc, collection, doc, serverTimestamp, Timestamp, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { toast } from "sonner";
+
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+
+// --- Interfaces ---
+interface SelectablePlayer {
+    uid: string;
+    displayName: string;
+}
+
+interface GroupData {
+    id: string;
+    teamColors: {
+        teamOne: string;
+        teamTwo: string;
+    };
+}
+
+interface PlayerWithPosition {
+    uid: string;
+    displayName: string;
+    position?: 'attack' | 'defense';
+}
+
+interface MatchData {
+    id: string;
+    groupId: string;
+    createdAt: Timestamp;
+    playedAt: Timestamp;
+    gameType: '1v1' | '2v2';
+    team1: {
+        color: string;
+        score: number;
+        players: PlayerWithPosition[];
+    };
+    team2: {
+        color: string;
+        score: number;
+        players: PlayerWithPosition[];
+    };
+    winner: 'team1' | 'team2' | 'draw';
+}
+
+// --- Form Input Type ---
+type MatchFormInputs = {
+    gameType: '1v1' | '2v2';
+    team1Player1: string; // Defense for team 1
+    team1Player2?: string; // Attack for team 1
+    team2Player1: string; // Defense for team 2
+    team2Player2?: string; // Attack for team 2
+    team1Score: number;
+    team2Score: number;
+    playedAt: string;
+};
+
+const GUEST_PREFIX = 'guest_';
+
+const formatTimestampForInput = (timestamp: Timestamp | undefined): string => {
+    if (!timestamp) return '';
+    const date = timestamp.toDate();
+    const timezoneOffset = date.getTimezoneOffset() * 60000;
+    const localISOTime = new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
+    return localISOTime;
+};
+
+interface MatchFormDialogProps {
+    isOpen: boolean;
+    onOpenChange: (open: boolean) => void;
+    editingMatch: MatchData | null;
+    group: GroupData;
+    groupId: string;
+    selectablePlayers: SelectablePlayer[];
+    members: Array<{ uid: string; displayName: string }>;
+}
+
+export default function MatchFormDialog({ 
+    isOpen, 
+    onOpenChange, 
+    editingMatch, 
+    group, 
+    groupId, 
+    selectablePlayers,
+    members
+}: MatchFormDialogProps) {
+    const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
+    const [normalizedPlayers, setNormalizedPlayers] = useState<SelectablePlayer[]>([]);
+
+    useEffect(() => {
+        const safeSelectablePlayers = Array.isArray(selectablePlayers) ? selectablePlayers : [];
+        
+        console.log("MatchFormDialog received selectablePlayers:", JSON.stringify(safeSelectablePlayers, null, 2));
+        
+        const validPlayers: SelectablePlayer[] = [];
+        
+        for (let i = 0; i < safeSelectablePlayers.length; i++) {
+            const player = safeSelectablePlayers[i];
+            console.log(`Processing player ${i}:`, player);
+            
+            if (player && 
+                typeof player.uid === 'string' && 
+                typeof player.displayName === 'string' &&
+                !player.uid.includes('[object Object]')) {
+                
+                validPlayers.push({
+                    uid: player.uid,
+                    displayName: player.displayName
+                });
+            } else {
+                console.warn(`Invalid player at index ${i}:`, player);
+                if (player && player.uid && player.uid.includes('[object Object]')) {
+                    console.warn(`Detected [object Object] in player.uid: ${player.uid}`);
+                    if (typeof player.displayName === 'string') {
+                        const sanitizedUid = `guest_fallback_${i}_${Date.now()}`;
+                        console.log(`Created sanitized UID: ${sanitizedUid}`);
+                        validPlayers.push({
+                            uid: sanitizedUid,
+                            displayName: player.displayName.replace(' (Guest)', '') + ' (Guest)'
+                        });
+                    }
+                }
+            }
+        }
+        
+        console.log("Normalized players:", validPlayers);
+        setNormalizedPlayers(validPlayers);
+        
+        if (validPlayers.length !== safeSelectablePlayers.length) {
+            console.warn(`MatchFormDialog: Found ${safeSelectablePlayers.length - validPlayers.length} invalid players`);
+        }
+    }, [selectablePlayers]);
+
+    const findPlayerByPosition = (players: PlayerWithPosition[], position: 'attack' | 'defense'): string => {
+        if (!players || players.length === 0) return '';
+        const player = players.find(p => p.position === position);
+        return player?.uid || '';
+    };
+
+    const team1DefensePlayer = editingMatch?.gameType === '2v2' 
+        ? findPlayerByPosition(editingMatch.team1.players, 'defense')
+        : editingMatch?.team1.players[0]?.uid || '';
+        
+    const team1AttackPlayer = editingMatch?.gameType === '2v2'
+        ? findPlayerByPosition(editingMatch.team1.players, 'attack')
+        : '';
+        
+    const team2DefensePlayer = editingMatch?.gameType === '2v2'
+        ? findPlayerByPosition(editingMatch.team2.players, 'defense')
+        : editingMatch?.team2.players[0]?.uid || '';
+        
+    const team2AttackPlayer = editingMatch?.gameType === '2v2'
+        ? findPlayerByPosition(editingMatch.team2.players, 'attack')
+        : '';
+
+    const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<MatchFormInputs>({
+        defaultValues: {
+            gameType: editingMatch?.gameType || '2v2', // Default is now 2v2
+            team1Player1: team1DefensePlayer, // Defense player for team 1
+            team1Player2: team1AttackPlayer, // Attack player for team 1
+            team2Player1: team2DefensePlayer, // Defense player for team 2
+            team2Player2: team2AttackPlayer, // Attack player for team 2
+            team1Score: editingMatch?.team1.score || 0,
+            team2Score: editingMatch?.team2.score || 0,
+            playedAt: formatTimestampForInput(editingMatch?.playedAt || Timestamp.now()),
+        }
+    });
+    
+    const watchedGameType = watch('gameType');
+
+    const onSubmitMatch: SubmitHandler<MatchFormInputs> = async (data) => {
+        setIsSubmittingMatch(true);
+
+        // --- Basic Validation ---
+        const players = [data.team1Player1, data.team1Player2, data.team2Player1, data.team2Player2].filter(Boolean);
+        const uniquePlayers = new Set(players);
+
+        if (data.gameType === '1v1') {
+            if (!data.team1Player1 || !data.team2Player1) {
+                toast.error("Validation Error", { description: "Please select one player for each team." });
+                setIsSubmittingMatch(false);
+                return;
+            }
+            if (data.team1Player1 === data.team2Player1) {
+                toast.error("Validation Error", { description: "A player cannot be on both teams." });
+                setIsSubmittingMatch(false);
+                return;
+            }
+        } else { // 2v2
+            if (!data.team1Player1 || !data.team1Player2 || !data.team2Player1 || !data.team2Player2) {
+                toast.error("Validation Error", { description: "Please select two players for each team." });
+                setIsSubmittingMatch(false);
+                return;
+            }
+            if (players.length !== uniquePlayers.size) {
+                toast.error("Validation Error", { description: "Each player can only be selected once per match." });
+                setIsSubmittingMatch(false);
+                return;
+            }
+        }
+        if (data.team1Score < 0 || data.team2Score < 0) {
+            toast.error("Validation Error", { description: "Scores cannot be negative." });
+            setIsSubmittingMatch(false);
+            return;
+        }
+        // --- End Validation ---
+
+        try {
+            const getPlayerDetails = (playerId: string | undefined, position?: 'attack' | 'defense'): PlayerWithPosition | null => {
+                if (!playerId) return null;
+
+                if (typeof playerId !== 'string' || playerId.includes('[object Object]')) {
+                    console.error("Invalid player ID detected:", playerId);
+                    return null;
+                }
+
+                if (playerId.startsWith(GUEST_PREFIX)) {
+                    const guestPlayer = normalizedPlayers.find(p => p.uid === playerId);
+                    if (guestPlayer) {
+                        return { 
+                            uid: playerId, 
+                            displayName: guestPlayer.displayName.replace(' (Guest)', ''), // Remove "(Guest)" suffix if present
+                            position: position
+                        };
+                    }
+                    
+                    const guestId = playerId.substring(GUEST_PREFIX.length);
+                    return { 
+                        uid: playerId, 
+                        displayName: `Guest ${guestId.substring(0, 5)}`,
+                        position: position
+                    };
+                } else {
+                    const member = members.find(m => m.uid === playerId);
+                    return member ? { 
+                        uid: member.uid, 
+                        displayName: member.displayName,
+                        position: position
+                    } : null;
+                }
+            };
+
+            const team1Players = data.gameType === '1v1' 
+                ? [getPlayerDetails(data.team1Player1)] 
+                : [
+                    getPlayerDetails(data.team1Player1, 'defense'),
+                    getPlayerDetails(data.team1Player2, 'attack')
+                  ];
+            
+            const team2Players = data.gameType === '1v1'
+                ? [getPlayerDetails(data.team2Player1)]
+                : [
+                    getPlayerDetails(data.team2Player1, 'defense'),
+                    getPlayerDetails(data.team2Player2, 'attack')
+                  ];
+
+            const filteredTeam1Players = team1Players.filter(Boolean) as PlayerWithPosition[];
+            const filteredTeam2Players = team2Players.filter(Boolean) as PlayerWithPosition[];
+
+            let winner: 'team1' | 'team2' | 'draw';
+            if (data.team1Score > data.team2Score) winner = 'team1';
+            else if (data.team2Score > data.team1Score) winner = 'team2';
+            else winner = 'draw';
+
+            const matchDocData = {
+                groupId: groupId,
+                playedAt: data.playedAt ? Timestamp.fromDate(new Date(data.playedAt)) : Timestamp.now(),
+                gameType: data.gameType,
+                team1: {
+                    color: group.teamColors.teamOne,
+                    score: Number(data.team1Score),
+                    players: filteredTeam1Players,
+                },
+                team2: {
+                    color: group.teamColors.teamTwo,
+                    score: Number(data.team2Score),
+                    players: filteredTeam2Players,
+                },
+                winner: winner,
+            };
+
+            if (editingMatch) {
+                const matchRef = doc(db, "matches", editingMatch.id);
+                await updateDoc(matchRef, {
+                    ...matchDocData,
+                    updatedAt: serverTimestamp()
+                });
+                toast.success("Match updated successfully!");
+            } else {
+                await addDoc(collection(db, "matches"), {
+                    ...matchDocData,
+                    createdAt: serverTimestamp(),
+                });
+                toast.success("Match added successfully!");
+            }
+
+            onOpenChange(false);
+            reset();
+
+        } catch (err) {
+            console.error("Error saving match:", err);
+            toast.error("Error saving match", { description: (err as Error).message });
+        } finally {
+            setIsSubmittingMatch(false);
+        }
+    };
+
+    const getPlayerDisplayName = (playerId: string): string => {
+        if (!playerId) return 'Select player';
+        
+        if (playerId.includes('[object Object]')) {
+            console.warn(`Invalid player ID detected: ${playerId}`);
+            return 'Invalid player';
+        }
+        
+        const player = normalizedPlayers.find(p => p.uid === playerId);
+        if (player) return player.displayName;
+        
+        if (playerId.startsWith(GUEST_PREFIX)) {
+            const guestId = playerId.substring(GUEST_PREFIX.length);
+            return `Guest ${guestId.substring(0, 5)}`;
+        }
+        
+        const member = members.find(m => m.uid === playerId);
+        if (member) return member.displayName;
+        
+        return 'Unknown Player';
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[525px] w-[95vw] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>{editingMatch ? 'Edit Match' : 'Add New Match'}</DialogTitle>
+                    <DialogDescription>
+                        Record the details of the foosball match.
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit(onSubmitMatch)}>
+                    <div className="grid gap-4 py-4">
+                        {/* Game Type */}
+                        <div className="space-y-2">
+                            <Label>Game Type</Label>
+                            <Controller
+                                name="gameType"
+                                control={control}
+                                render={({ field }) => (
+                                    <RadioGroup
+                                        onValueChange={field.onChange}
+                                        value={field.value}
+                                        className="flex gap-4"
+                                        disabled={isSubmittingMatch}
+                                    >
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="1v1" id="r1" />
+                                            <Label htmlFor="r1">1 vs 1</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <RadioGroupItem value="2v2" id="r2" />
+                                            <Label htmlFor="r2">2 vs 2</Label>
+                                        </div>
+                                    </RadioGroup>
+                                )}
+                            />
+                        </div>
+
+                        {/* Team 1 Players */}
+                        {watchedGameType === '1v1' ? (
+                            <div className="space-y-2">
+                                <Label htmlFor="t1p1" style={{ color: group?.teamColors?.teamOne }}>
+                                    Team 1 Player
+                                </Label>
+                                <Controller
+                                    name="team1Player1"
+                                    control={control}
+                                    rules={{ required: 'Player is required' }}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
+                                            <SelectTrigger id="t1p1">
+                                                <SelectValue placeholder="Select player">
+                                                    {field.value ? getPlayerDisplayName(field.value) : "Select player"}
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {normalizedPlayers.map((player, index) => {
+                                                    const uniqueKey = `t1p1-${player.uid.replace(/\W/g, '')}-${index}`;
+                                                    return (
+                                                        <SelectItem 
+                                                            key={uniqueKey} 
+                                                            value={player.uid}
+                                                        >
+                                                            {player.displayName}
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.team1Player1 && <p className="text-red-500 text-sm">{errors.team1Player1.message}</p>}
+                            </div>
+                        ) : (
+                            <>
+                                <div className="space-y-2">
+                                    <Label htmlFor="t1p1" style={{ color: group?.teamColors?.teamOne }}>
+                                        Team 1 Defense
+                                    </Label>
+                                    <Controller
+                                        name="team1Player1"
+                                        control={control}
+                                        rules={{ required: 'Defense player is required' }}
+                                        render={({ field }) => (
+                                            <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
+                                                <SelectTrigger id="t1p1">
+                                                    <SelectValue placeholder="Select defense player">
+                                                        {field.value ? getPlayerDisplayName(field.value) : "Select defense player"}
+                                                    </SelectValue>
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {normalizedPlayers.map((player, index) => {
+                                                        const uniqueKey = `t1p1-${player.uid.replace(/\W/g, '')}-${index}`;
+                                                        return (
+                                                            <SelectItem 
+                                                                key={uniqueKey} 
+                                                                value={player.uid}
+                                                            >
+                                                                {player.displayName}
+                                                            </SelectItem>
+                                                        );
+                                                    })}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
+                                    {errors.team1Player1 && <p className="text-red-500 text-sm">{errors.team1Player1.message}</p>}
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="t1p2" style={{ color: group?.teamColors?.teamOne }}>
+                                        Team 1 Attack
+                                    </Label>
+                                    <Controller
+                                        name="team1Player2"
+                                        control={control}
+                                        rules={{ required: 'Attack player is required' }}
+                                        render={({ field }) => (
+                                            <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
+                                                <SelectTrigger id="t1p2">
+                                                    <SelectValue placeholder="Select attack player">
+                                                        {field.value ? getPlayerDisplayName(field.value) : "Select attack player"}
+                                                    </SelectValue>
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {normalizedPlayers.map((player, index) => {
+                                                        const uniqueKey = `t1p2-${player.uid.replace(/\W/g, '')}-${index}`;
+                                                        return (
+                                                            <SelectItem 
+                                                                key={uniqueKey} 
+                                                                value={player.uid}
+                                                            >
+                                                                {player.displayName}
+                                                            </SelectItem>
+                                                        );
+                                                    })}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
+                                    {errors.team1Player2 && <p className="text-red-500 text-sm">{errors.team1Player2.message}</p>}
+                                </div>
+                            </>
+                        )}
+
+                        {/* Team 2 Players */}
+                        {watchedGameType === '1v1' ? (
+                            <div className="space-y-2">
+                                <Label htmlFor="t2p1" style={{ color: group?.teamColors?.teamTwo }}>
+                                    Team 2 Player
+                                </Label>
+                                <Controller
+                                    name="team2Player1"
+                                    control={control}
+                                    rules={{ required: 'Player is required' }}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
+                                            <SelectTrigger id="t2p1">
+                                                <SelectValue placeholder="Select player">
+                                                    {field.value ? getPlayerDisplayName(field.value) : "Select player"}
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {normalizedPlayers.map((player, index) => {
+                                                    const uniqueKey = `t2p1-${player.uid.replace(/\W/g, '')}-${index}`;
+                                                    return (
+                                                        <SelectItem 
+                                                            key={uniqueKey} 
+                                                            value={player.uid}
+                                                        >
+                                                            {player.displayName}
+                                                        </SelectItem>
+                                                    );
+                                                })}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {errors.team2Player1 && <p className="text-red-500 text-sm">{errors.team2Player1.message}</p>}
+                            </div>
+                        ) : (
+                            <>
+                                <div className="space-y-2">
+                                    <Label htmlFor="t2p1" style={{ color: group?.teamColors?.teamTwo }}>
+                                        Team 2 Defense
+                                    </Label>
+                                    <Controller
+                                        name="team2Player1"
+                                        control={control}
+                                        rules={{ required: 'Defense player is required' }}
+                                        render={({ field }) => (
+                                            <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
+                                                <SelectTrigger id="t2p1">
+                                                    <SelectValue placeholder="Select defense player">
+                                                        {field.value ? getPlayerDisplayName(field.value) : "Select defense player"}
+                                                    </SelectValue>
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {normalizedPlayers.map((player, index) => {
+                                                        const uniqueKey = `t2p1-${player.uid.replace(/\W/g, '')}-${index}`;
+                                                        return (
+                                                            <SelectItem 
+                                                                key={uniqueKey} 
+                                                                value={player.uid}
+                                                            >
+                                                                {player.displayName}
+                                                            </SelectItem>
+                                                        );
+                                                    })}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
+                                    {errors.team2Player1 && <p className="text-red-500 text-sm">{errors.team2Player1.message}</p>}
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="t2p2" style={{ color: group?.teamColors?.teamTwo }}>
+                                        Team 2 Attack
+                                    </Label>
+                                    <Controller
+                                        name="team2Player2"
+                                        control={control}
+                                        rules={{ required: 'Attack player is required' }}
+                                        render={({ field }) => (
+                                            <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
+                                                <SelectTrigger id="t2p2">
+                                                    <SelectValue placeholder="Select attack player">
+                                                        {field.value ? getPlayerDisplayName(field.value) : "Select attack player"}
+                                                    </SelectValue>
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {normalizedPlayers.map((player, index) => {
+                                                        const uniqueKey = `t2p2-${player.uid.replace(/\W/g, '')}-${index}`;
+                                                        return (
+                                                            <SelectItem 
+                                                                key={uniqueKey} 
+                                                                value={player.uid}
+                                                            >
+                                                                {player.displayName}
+                                                            </SelectItem>
+                                                        );
+                                                    })}
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
+                                    {errors.team2Player2 && <p className="text-red-500 text-sm">{errors.team2Player2.message}</p>}
+                                </div>
+                            </>
+                        )}
+
+                        {/* Scores */}
+                        <div className="space-y-2">
+                            <Label htmlFor="t1score" style={{ color: group?.teamColors?.teamOne }}>
+                                Team 1 Score
+                            </Label>
+                            <Input
+                                id="t1score"
+                                type="number"
+                                min="0"
+                                {...register("team1Score", { required: true, valueAsNumber: true, min: 0 })}
+                                disabled={isSubmittingMatch}
+                            />
+                            {errors.team1Score && <p className="text-red-500 text-sm">Score is required and must be 0 or more.</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="t2score" style={{ color: group?.teamColors?.teamTwo }}>
+                                Team 2 Score
+                            </Label>
+                            <Input
+                                id="t2score"
+                                type="number"
+                                min="0"
+                                {...register("team2Score", { required: true, valueAsNumber: true, min: 0 })}
+                                disabled={isSubmittingMatch}
+                            />
+                            {errors.team2Score && <p className="text-red-500 text-sm">Score is required and must be 0 or more.</p>}
+                        </div>
+
+                         {/* Played At */}
+                         <div className="space-y-2">
+                            <Label htmlFor="playedAt">
+                                Played At
+                            </Label>
+                            <Input
+                                id="playedAt"
+                                type="datetime-local"
+                                {...register("playedAt", { required: "Date and time are required" })}
+                                disabled={isSubmittingMatch}
+                            />
+                            {errors.playedAt && <p className="text-red-500 text-sm">{errors.playedAt.message}</p>}
+                        </div>
+                    </div>
+                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                        <DialogClose asChild>
+                            <Button type="button" variant="outline" disabled={isSubmittingMatch} className="w-full sm:w-auto">Cancel</Button>
+                        </DialogClose>
+                        <Button type="submit" disabled={isSubmittingMatch} className="w-full sm:w-auto">
+                            {isSubmittingMatch ? (editingMatch ? 'Saving...' : 'Adding...') : (editingMatch ? 'Save Changes' : 'Add Match')}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
