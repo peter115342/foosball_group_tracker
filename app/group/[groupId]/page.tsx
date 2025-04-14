@@ -40,8 +40,7 @@ interface GroupData extends DocumentData {
     members: {
         [uid: string]: {
             name: string;
-            isMember: boolean;
-            isAdmin?: boolean;
+            role: 'admin' | 'editor' | 'viewer';
         };
     };
     guests?: Array<{id: string; name: string}>;
@@ -143,7 +142,7 @@ export default function GroupDetailPage() {
             if (docSnap.exists()) {
                 const groupData = { id: docSnap.id, ...docSnap.data() } as GroupData;
 
-                if (!groupData.members || !groupData.members[user.uid]?.isMember) {
+                if (!groupData.members || !groupData.members[user.uid]?.role) {
                     setError("Access Denied: You are not a member of this group.");
                     setGroup(null);
                     setMembers([]);
@@ -155,7 +154,7 @@ export default function GroupDetailPage() {
                 setGroup(groupData);
 
                 const fetchedMembers: Member[] = Object.entries(groupData.members)
-                    .filter(([, memberData]) => memberData.isMember)
+                    .filter(([, memberData]) => memberData.role === 'admin' || memberData.role === 'editor' || memberData.role === 'viewer')
                     .map(([uid, memberData]) => ({
                         uid: uid,
                         displayName: memberData.name || `User ${uid.substring(0, 5)}`
@@ -228,7 +227,7 @@ export default function GroupDetailPage() {
         });
 
         return () => unsubscribe();
-    }, [groupId, group]);
+    }, [groupId, group, error, groupLoading]);
 
     const handleOpenAddMatchDialog = () => {
         setEditingMatch(null);
@@ -395,7 +394,6 @@ export default function GroupDetailPage() {
                                         )}
                                     </div>
 
-                                    {/* === START: Updated Team Player Display === */}
                                     <div className="text-sm text-muted-foreground mb-2 space-y-1">
                                         <div>
                                             <span className="inline-flex items-center gap-1.5 mr-1">
@@ -424,7 +422,6 @@ export default function GroupDetailPage() {
                                             ).join(' & ') || 'N/A'}
                                         </div>
                                     </div>
-                                    {/* === END: Updated Team Player Display === */}
 
                                     <p className="text-xs text-muted-foreground">
                                         Played: {match.playedAt?.toDate().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) ?? 'Unknown date'}

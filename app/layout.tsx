@@ -20,10 +20,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider> {/* AuthProvider wraps everything */}
-          <Navbar /> {/* Add the Navbar here */}
-          <main>{children}</main> {/* Wrap page content in main */}
-          <Toaster richColors position="top-right" /> {/* Toaster remains */}
+        <AuthProvider> {}
+          <Navbar /> {}
+          <main>{children}</main> {}
+          <Toaster richColors position="top-right" /> {}
         </AuthProvider>
       </body>
     </html>

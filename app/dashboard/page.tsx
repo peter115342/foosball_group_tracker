@@ -25,19 +25,17 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-//import { Label } from "@/components/ui/label";
 import { db } from '@/lib/firebase/config';
-import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc, updateDoc, deleteField } from "firebase/firestore";
-import { X, Trash2, UserPlus, Users } from 'lucide-react';
+import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc,} from "firebase/firestore";
+import { Edit, Trash2,Users, Copy } from 'lucide-react';
 import { toast } from "sonner";
 import GroupFormDialog from '@/components/groups/GroupFormDialog';
+import JoinGroupForm from '@/components/groups/JoinGroupForm';
+import ManageMembersDialog from '@/components/groups/ManageMembersDialog';
 
 interface MemberData {
     name: string;
-    isMember: boolean;
-    isAdmin?: boolean;
+    role: 'admin' | 'editor' | 'viewer';
 }
 
 interface GuestData {
@@ -50,13 +48,14 @@ interface GroupDoc extends DocumentData {
     name: string;
     adminUid: string;
     adminName?: string;
+    inviteCode?: string;
     members: { [uid: string]: MemberData };
     guests?: GuestData[] | string[];
     teamColors: {
         teamOne: string;
         teamTwo: string;
     };
-    groupColor?: string; // Added group color field
+    groupColor?: string;
 }
 
 const formatAdminDisplayName = (fullName: string | null | undefined): string => {
@@ -72,6 +71,7 @@ export default function DashboardPage() {
   const { user, loading} = useAuth();
   const router = useRouter();
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isJoinGroupOpen, setIsJoinGroupOpen] = useState(false);
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
 
@@ -81,10 +81,6 @@ export default function DashboardPage() {
 
   const [isManageMembersDialogOpen, setIsManageMembersDialogOpen] = useState(false);
   const [groupToManage, setGroupToManage] = useState<GroupDoc | null>(null);
-  const [manageGuestNameInput, setManageGuestNameInput] = useState('');
-  const [currentGuests, setCurrentGuests] = useState<GuestData[]>([]);
-  const [membersToRemove, setMembersToRemove] = useState<string[]>([]);
-  const [isManagingMembers, setIsManagingMembers] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -96,7 +92,7 @@ export default function DashboardPage() {
     if (user && !loading) {
       setGroupsLoading(true);
       const groupsCollectionRef = collection(db, "groups");
-      const q = query(groupsCollectionRef, where(`members.${user.uid}.isMember`, "==", true));
+      const q = query(groupsCollectionRef, where(`members.${user.uid}.role`, "in", ["admin", "editor", "viewer"]));
 
       const unsubscribe = onSnapshot(q, (querySnapshot: QuerySnapshot<DocumentData>) => {
         const userGroups: GroupDoc[] = [];
@@ -112,42 +108,11 @@ export default function DashboardPage() {
       });
 
       return () => unsubscribe();
-    } else if (!user && !loading) { // Ensure loading is false before clearing groups
+    } else if (!user && !loading) {
       setGroups([]);
       setGroupsLoading(false);
     }
   }, [user, loading]);
-
-  useEffect(() => {
-    if (isManageMembersDialogOpen && groupToManage) {
-        const guests = groupToManage.guests || [];
-        const guestsWithIds: GuestData[] = Array.isArray(guests)
-            ? guests.map(guest => {
-                if (typeof guest === 'string') {
-                    return { id: uuidv4(), name: guest };
-                }
-                else if (typeof guest === 'object' && guest !== null) {
-                    const tempGuest = guest as unknown as { id?: string; name?: string };
-                    return {
-                        id: typeof tempGuest.id === 'string' ? tempGuest.id : uuidv4(),
-                        name: typeof tempGuest.name === 'string' ? tempGuest.name : ''
-                    };
-                }
-                return { id: uuidv4(), name: String(guest) };
-            })
-            : [];
-
-        setCurrentGuests(guestsWithIds);
-        setMembersToRemove([]);
-        setManageGuestNameInput('');
-    } else {
-        // Reset state when dialog closes or groupToManage is null
-        setGroupToManage(null);
-        setCurrentGuests([]);
-        setMembersToRemove([]);
-        setManageGuestNameInput('');
-    }
-  }, [isManageMembersDialogOpen, groupToManage]);
 
   const handleOpenDeleteDialog = (group: GroupDoc) => {
       setGroupToDelete(group);
@@ -179,82 +144,10 @@ export default function DashboardPage() {
       setIsManageMembersDialogOpen(true);
   };
 
-  const handleToggleMemberRemoval = (uid: string) => {
-      setMembersToRemove(prev =>
-          prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
-      );
-  };
-
-  const handleAddManageGuest = () => {
-      const trimmedName = manageGuestNameInput.trim();
-      if (trimmedName) {
-          const existingGuest = currentGuests.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
-
-          if (!existingGuest) {
-              const guestId = uuidv4();
-              setCurrentGuests([...currentGuests, { id: guestId, name: trimmedName }]);
-              setManageGuestNameInput('');
-          } else {
-              toast.warning("Guest with this name already exists.");
-          }
-      }
-  };
-
-  const handleRemoveManageGuest = (guestIdToRemove: string) => {
-      setCurrentGuests(currentGuests.filter(guest => guest.id !== guestIdToRemove));
-  };
-
-  const handleSaveChanges = async () => {
-      if (!groupToManage || !user || user.uid !== groupToManage.adminUid) {
-          toast.error("Unauthorized or group not selected.");
-          return;
-      }
-      setIsManagingMembers(true);
-
-      try {
-          const groupRef = doc(db, "groups", groupToManage.id);
-          const updateData: {
-              guests: GuestData[];
-              [key: string]: GuestData[] | ReturnType<typeof deleteField>
-          } = {
-              guests: currentGuests
-          };
-
-          membersToRemove.forEach(uid => {
-              updateData[`members.${uid}`] = deleteField();
-          });
-
-          const originalGuests = groupToManage.guests || [];
-          const guestsChanged = currentGuests.length !== originalGuests.length ||
-              currentGuests.some((guest, i) => {
-                  if (i >= originalGuests.length) return true;
-
-                  const origGuest = originalGuests[i];
-                  if (typeof origGuest === 'string') {
-                      return guest.name !== origGuest;
-                  } else if (typeof origGuest === 'object' && origGuest !== null) {
-                      const tempGuest = origGuest as unknown as { id?: string; name?: string };
-                      // Compare both id and name for more robust change detection
-                      return guest.id !== tempGuest.id || guest.name !== tempGuest.name;
-                  }
-                  return true; // Treat unknown original format as changed
-              });
-
-          if (membersToRemove.length > 0 || guestsChanged) {
-               await updateDoc(groupRef, updateData);
-               toast.success(`Members and guests updated for "${groupToManage.name}".`);
-          } else {
-              toast.info("No changes detected.");
-          }
-
-          setIsManageMembersDialogOpen(false);
-
-      } catch (error) {
-          console.error("Error updating members/guests:", error);
-          toast.error("Error updating group", { description: (error as Error).message });
-      } finally {
-          setIsManagingMembers(false);
-      }
+  const handleCopyInviteCode = (inviteCode: string) => {
+    navigator.clipboard.writeText(inviteCode)
+      .then(() => toast.success('Invite code copied to clipboard'))
+      .catch(() => toast.error('Failed to copy invite code'));
   };
 
   if (loading || !user) {
@@ -270,7 +163,13 @@ export default function DashboardPage() {
     <div className="container mx-auto py-8 px-4 md:px-8">
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Your Groups</h1>
-        <div className="flex gap-4">
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => setIsJoinGroupOpen(true)}
+          >
+            Join Group
+          </Button>
           <Button onClick={() => setIsCreateGroupOpen(true)}>Create Group</Button>
         </div>
       </header>
@@ -285,28 +184,27 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {groups.map((group) => (
             <div key={group.id} className="border rounded-lg p-4 flex flex-col relative overflow-hidden">
-              {/* Colored Icon Placeholder */}
               <div
                 className="absolute -top-4 -left-4 w-16 h-16 rounded-full flex items-center justify-center text-2xl opacity-80"
-                style={{ backgroundColor: group.groupColor || '#cccccc' }} // Use group color or default gray
+                style={{ backgroundColor: group.groupColor || '#cccccc' }}
                 aria-hidden="true"
               >
-                <span className="mt-4 ml-4">⚽</span> {/* Football emoji */}
+                <span className="mt-4 ml-4">⚽</span>
               </div>
 
-              <div className="flex justify-between items-start mb-2 pl-10"> {/* Add padding to avoid overlap */}
+              <div className="flex justify-between items-start mb-2 pl-10">
                 <h2 className="text-xl font-semibold">{group.name}</h2>
                 {user.uid === group.adminUid && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="relative z-10">...</Button>
+                      <Button variant="ghost" size="sm" className="relative z-10"><Edit className="h-6 w-" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Group Options</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleOpenManageMembersDialog(group)}>
                         <Users className="mr-2 h-4 w-4" />
-                        <span>Manage Members</span>
+                        <span>Manage Group</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleOpenDeleteDialog(group)}
@@ -320,11 +218,31 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground pl-10"> {/* Add padding */}
+              <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground pl-10">
                 <span className="inline-block h-5 w-5 rounded-full border" style={{ backgroundColor: group.teamColors.teamOne }}></span>
                 <span>vs</span>
                 <span className="inline-block h-5 w-5 rounded-full border" style={{ backgroundColor: group.teamColors.teamTwo }}></span>
               </div>
+
+              {user.uid === group.adminUid && group.inviteCode && (
+                <div className="mt-2 mb-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-semibold">Invite Code:</span> 
+                      <span className="font-mono ml-1">{group.inviteCode}</span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 px-2"
+                      onClick={() => handleCopyInviteCode(group.inviteCode || '')}
+                    >
+                      <Copy className="h-3 w-3 mr-1" />
+                      <span className="text-xs">Copy</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-auto pt-3 border-t flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
@@ -344,15 +262,34 @@ export default function DashboardPage() {
       ) : (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-4">You have not created or joined any groups yet.</p>
-          <Button onClick={() => setIsCreateGroupOpen(true)}>Create Your First Group</Button>
+          <div className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => setIsJoinGroupOpen(true)}>Join a Group</Button>
+            <Button onClick={() => setIsCreateGroupOpen(true)}>Create Your First Group</Button>
+          </div>
         </div>
       )}
 
       {user && (
-        <GroupFormDialog
-          isOpen={isCreateGroupOpen}
-          onOpenChange={setIsCreateGroupOpen}
-          user={user}
+        <>
+          <GroupFormDialog
+            isOpen={isCreateGroupOpen}
+            onOpenChange={setIsCreateGroupOpen}
+            user={user}
+          />
+          <JoinGroupForm
+            isOpen={isJoinGroupOpen}
+            onOpenChange={setIsJoinGroupOpen}
+            user={user}
+          />
+        </>
+      )}
+
+      {groupToManage && (
+        <ManageMembersDialog 
+          isOpen={isManageMembersDialogOpen}
+          onOpenChange={setIsManageMembersDialogOpen}
+          group={groupToManage}
+          currentUser={user}
         />
       )}
 
@@ -377,112 +314,6 @@ export default function DashboardPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <Dialog open={isManageMembersDialogOpen} onOpenChange={setIsManageMembersDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Manage Group Members</DialogTitle>
-            <DialogDescription>
-              Add or remove members from &quot;{groupToManage?.name}&quot;.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4 space-y-6">
-            {groupToManage && Object.entries(groupToManage.members).length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium mb-2">Members</h3>
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-2"> {/* Added scroll for long member lists */}
-                  {Object.entries(groupToManage.members).map(([uid, memberData]) => (
-                    <div key={uid} className="flex items-center justify-between p-2 border rounded">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>{memberData.name?.charAt(0)?.toUpperCase() || '?'}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">{memberData.name || `User ${uid.substring(0,5)}`}</p>
-                          {memberData.isAdmin && <p className="text-xs text-muted-foreground">Admin</p>}
-                        </div>
-                      </div>
-
-                      {!memberData.isAdmin && uid !== user.uid && (
-                        <Button
-                          variant={membersToRemove.includes(uid) ? "destructive" : "outline"}
-                          size="sm"
-                          onClick={() => handleToggleMemberRemoval(uid)}
-                          disabled={isManagingMembers}
-                        >
-                          {membersToRemove.includes(uid) ? 'Undo' : 'Remove'}
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <h3 className="text-sm font-medium mb-2">Guest Players</h3>
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add guest name"
-                    value={manageGuestNameInput}
-                    onChange={(e) => setManageGuestNameInput(e.target.value)}
-                    disabled={isManagingMembers}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddManageGuest();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleAddManageGuest}
-                    disabled={!manageGuestNameInput.trim() || isManagingMembers}
-                  >
-                    <UserPlus className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {currentGuests.length > 0 ? (
-                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-2"> {/* Added scroll for guests */}
-                    {currentGuests.map(guest => (
-                      <div key={guest.id} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm">
-                        {guest.name}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="p-0 h-auto ml-1"
-                          onClick={() => handleRemoveManageGuest(guest.id)}
-                          disabled={isManagingMembers}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No guest players added.</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" disabled={isManagingMembers}>Cancel</Button>
-            </DialogClose>
-            <Button
-              onClick={handleSaveChanges}
-              disabled={isManagingMembers || (membersToRemove.length === 0 && JSON.stringify(currentGuests.map(g => ({id: g.id, name: g.name})).sort((a,b) => a.name.localeCompare(b.name))) === JSON.stringify((groupToManage?.guests || []).map(g => typeof g === 'string' ? {id: 'unknown', name: g} : {id: (g as GuestData).id, name: (g as GuestData).name}).sort((a,b) => a.name.localeCompare(b.name))))} // Disable save if no changes
-            >
-              {isManagingMembers ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

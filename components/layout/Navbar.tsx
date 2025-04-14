@@ -19,7 +19,7 @@ export default function Navbar() {
               Logout
             </Button>
           )}
-          {/* Add other nav items here if needed in the future */}
+          {}
         </div>
       </div>
     </nav>

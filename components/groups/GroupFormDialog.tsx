@@ -36,12 +36,6 @@ interface GuestData {
   name: string;
 }
 
-interface MemberData {
-  name: string;
-  isMember: boolean;
-  isAdmin?: boolean;
-}
-
 interface GroupFormDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,18 +54,9 @@ const predefinedTeamColors = [
 ];
 
 const readableGroupColors = [
-  '#FF6B6B', // Light Red
-  '#4ECDC4', // Turquoise
-  '#45B7D1', // Sky Blue
-  '#FED766', // Light Yellow
-  '#F8A5C2', // Pink
-  '#8A84E2', // Lavender
-  '#54A0FF', // Bright Blue
-  '#50C878', // Emerald Green
-  '#FF9F43', // Orange Peel
-  '#A55EEA', // Medium Purple
-  '#FF7F50', // Coral
-  '#1DD1A1', // Mint Green
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FED766', '#F8A5C2', 
+  '#8A84E2', '#54A0FF', '#50C878', '#FF9F43', '#A55EEA', 
+  '#FF7F50', '#1DD1A1'
 ];
 
 const getRandomGroupColor = () => {
@@ -79,6 +64,14 @@ const getRandomGroupColor = () => {
   return readableGroupColors[randomIndex];
 };
 
+const generateInviteCode = (): string => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let result = '';
+  for (let i = 0; i < 8; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
 
 export default function GroupFormDialog({
   isOpen,
@@ -137,12 +130,14 @@ export default function GroupFormDialog({
 
       const fullAdminName = user.displayName || `Admin_${user.uid.substring(0, 5)}`;
       const memberFirstName = user.displayName?.split(' ')[0] || `Admin_${user.uid.substring(0, 5)}`;
-
-      const membersMap: { [key: string]: MemberData } = {};
-      membersMap[user.uid] = {
-        name: memberFirstName,
-        isMember: true,
-        isAdmin: true
+      
+      const inviteCode = generateInviteCode();
+      
+      const membersMap = {
+        [user.uid]: {
+          name: memberFirstName,
+          role: 'admin'
+        }
       };
 
       const selectedGroupColor = getRandomGroupColor();
@@ -151,6 +146,7 @@ export default function GroupFormDialog({
         name: data.groupName,
         adminUid: user.uid,
         adminName: fullAdminName,
+        inviteCode: inviteCode,
         createdAt: serverTimestamp(),
         members: membersMap,
         guests: createGuestMembers,
