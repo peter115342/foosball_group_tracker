@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
-// --- Interfaces ---
 interface SelectablePlayer {
     uid: string;
     displayName: string;
@@ -66,13 +65,12 @@ interface MatchData {
     winner: 'team1' | 'team2' | 'draw';
 }
 
-// --- Form Input Type ---
 type MatchFormInputs = {
     gameType: '1v1' | '2v2';
-    team1Player1: string; // Defense for team 1
-    team1Player2?: string; // Attack for team 1
-    team2Player1: string; // Defense for team 2
-    team2Player2?: string; // Attack for team 2
+    team1Player1: string;
+    team1Player2?: string;
+    team2Player1: string;
+    team2Player2?: string;
     team1Score: number;
     team2Score: number;
     playedAt: string;
@@ -178,11 +176,11 @@ export default function MatchFormDialog({
 
     const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<MatchFormInputs>({
         defaultValues: {
-            gameType: editingMatch?.gameType || '2v2', // Default is now 2v2
-            team1Player1: team1DefensePlayer, // Defense player for team 1
-            team1Player2: team1AttackPlayer, // Attack player for team 1
-            team2Player1: team2DefensePlayer, // Defense player for team 2
-            team2Player2: team2AttackPlayer, // Attack player for team 2
+            gameType: editingMatch?.gameType || '2v2',
+            team1Player1: team1DefensePlayer,
+            team1Player2: team1AttackPlayer,
+            team2Player1: team2DefensePlayer,
+            team2Player2: team2AttackPlayer,
             team1Score: editingMatch?.team1.score || 0,
             team2Score: editingMatch?.team2.score || 0,
             playedAt: formatTimestampForInput(editingMatch?.playedAt || Timestamp.now()),
@@ -194,7 +192,6 @@ export default function MatchFormDialog({
     const onSubmitMatch: SubmitHandler<MatchFormInputs> = async (data) => {
         setIsSubmittingMatch(true);
 
-        // --- Basic Validation ---
         const players = [data.team1Player1, data.team1Player2, data.team2Player1, data.team2Player2].filter(Boolean);
         const uniquePlayers = new Set(players);
 
@@ -209,7 +206,7 @@ export default function MatchFormDialog({
                 setIsSubmittingMatch(false);
                 return;
             }
-        } else { // 2v2
+        } else {
             if (!data.team1Player1 || !data.team1Player2 || !data.team2Player1 || !data.team2Player2) {
                 toast.error("Validation Error", { description: "Please select two players for each team." });
                 setIsSubmittingMatch(false);
@@ -226,7 +223,6 @@ export default function MatchFormDialog({
             setIsSubmittingMatch(false);
             return;
         }
-        // --- End Validation ---
 
         try {
             const getPlayerDetails = (playerId: string | undefined, position?: 'attack' | 'defense'): PlayerWithPosition | null => {
@@ -242,7 +238,7 @@ export default function MatchFormDialog({
                     if (guestPlayer) {
                         return { 
                             uid: playerId, 
-                            displayName: guestPlayer.displayName.replace(' (Guest)', ''), // Remove "(Guest)" suffix if present
+                            displayName: guestPlayer.displayName.replace(' (Guest)', ''),
                             position: position
                         };
                     }
@@ -361,7 +357,6 @@ export default function MatchFormDialog({
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onSubmitMatch)}>
                     <div className="grid gap-4 py-4">
-                        {/* Game Type */}
                         <div className="space-y-2">
                             <Label>Game Type</Label>
                             <Controller
@@ -387,12 +382,15 @@ export default function MatchFormDialog({
                             />
                         </div>
 
-                        {/* Team 1 Players */}
                         {watchedGameType === '1v1' ? (
                             <div className="space-y-2">
-                                <Label htmlFor="t1p1" style={{ color: group?.teamColors?.teamOne }}>
-                                    Team 1 Player
-                                </Label>
+                                <div className="flex items-center gap-2">
+                                    <div 
+                                        className="w-4 h-4 rounded-full border border-black" 
+                                        style={{ backgroundColor: group?.teamColors?.teamOne }} 
+                                    />
+                                    <Label htmlFor="t1p1">Team 1 Player</Label>
+                                </div>
                                 <Controller
                                     name="team1Player1"
                                     control={control}
@@ -425,9 +423,13 @@ export default function MatchFormDialog({
                         ) : (
                             <>
                                 <div className="space-y-2">
-                                    <Label htmlFor="t1p1" style={{ color: group?.teamColors?.teamOne }}>
-                                        Team 1 Defense
-                                    </Label>
+                                    <div className="flex items-center gap-2">
+                                        <div 
+                                            className="w-4 h-4 rounded-full border border-black" 
+                                            style={{ backgroundColor: group?.teamColors?.teamOne }} 
+                                        />
+                                        <Label htmlFor="t1p1">Team 1 Defense</Label>
+                                    </div>
                                     <Controller
                                         name="team1Player1"
                                         control={control}
@@ -458,9 +460,13 @@ export default function MatchFormDialog({
                                     {errors.team1Player1 && <p className="text-red-500 text-sm">{errors.team1Player1.message}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="t1p2" style={{ color: group?.teamColors?.teamOne }}>
-                                        Team 1 Attack
-                                    </Label>
+                                    <div className="flex items-center gap-2">
+                                        <div 
+                                            className="w-4 h-4 rounded-full border border-black" 
+                                            style={{ backgroundColor: group?.teamColors?.teamOne }} 
+                                        />
+                                        <Label htmlFor="t1p2">Team 1 Attack</Label>
+                                    </div>
                                     <Controller
                                         name="team1Player2"
                                         control={control}
@@ -493,12 +499,15 @@ export default function MatchFormDialog({
                             </>
                         )}
 
-                        {/* Team 2 Players */}
                         {watchedGameType === '1v1' ? (
                             <div className="space-y-2">
-                                <Label htmlFor="t2p1" style={{ color: group?.teamColors?.teamTwo }}>
-                                    Team 2 Player
-                                </Label>
+                                <div className="flex items-center gap-2">
+                                    <div 
+                                        className="w-4 h-4 rounded-full border border-black" 
+                                        style={{ backgroundColor: group?.teamColors?.teamTwo }} 
+                                    />
+                                    <Label htmlFor="t2p1">Team 2 Player</Label>
+                                </div>
                                 <Controller
                                     name="team2Player1"
                                     control={control}
@@ -531,9 +540,13 @@ export default function MatchFormDialog({
                         ) : (
                             <>
                                 <div className="space-y-2">
-                                    <Label htmlFor="t2p1" style={{ color: group?.teamColors?.teamTwo }}>
-                                        Team 2 Defense
-                                    </Label>
+                                    <div className="flex items-center gap-2">
+                                        <div 
+                                            className="w-4 h-4 rounded-full border border-black" 
+                                            style={{ backgroundColor: group?.teamColors?.teamTwo }} 
+                                        />
+                                        <Label htmlFor="t2p1">Team 2 Defense</Label>
+                                    </div>
                                     <Controller
                                         name="team2Player1"
                                         control={control}
@@ -564,9 +577,13 @@ export default function MatchFormDialog({
                                     {errors.team2Player1 && <p className="text-red-500 text-sm">{errors.team2Player1.message}</p>}
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="t2p2" style={{ color: group?.teamColors?.teamTwo }}>
-                                        Team 2 Attack
-                                    </Label>
+                                    <div className="flex items-center gap-2">
+                                        <div 
+                                            className="w-4 h-4 rounded-full border border-black" 
+                                            style={{ backgroundColor: group?.teamColors?.teamTwo }} 
+                                        />
+                                        <Label htmlFor="t2p2">Team 2 Attack</Label>
+                                    </div>
                                     <Controller
                                         name="team2Player2"
                                         control={control}
@@ -599,11 +616,14 @@ export default function MatchFormDialog({
                             </>
                         )}
 
-                        {/* Scores */}
                         <div className="space-y-2">
-                            <Label htmlFor="t1score" style={{ color: group?.teamColors?.teamOne }}>
-                                Team 1 Score
-                            </Label>
+                            <div className="flex items-center gap-2">
+                                <div 
+                                    className="w-4 h-4 rounded-full border border-black" 
+                                    style={{ backgroundColor: group?.teamColors?.teamOne }} 
+                                />
+                                <Label htmlFor="t1score">Team 1 Score</Label>
+                            </div>
                             <Input
                                 id="t1score"
                                 type="number"
@@ -614,9 +634,13 @@ export default function MatchFormDialog({
                             {errors.team1Score && <p className="text-red-500 text-sm">Score is required and must be 0 or more.</p>}
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="t2score" style={{ color: group?.teamColors?.teamTwo }}>
-                                Team 2 Score
-                            </Label>
+                            <div className="flex items-center gap-2">
+                                <div 
+                                    className="w-4 h-4 rounded-full border border-black" 
+                                    style={{ backgroundColor: group?.teamColors?.teamTwo }} 
+                                />
+                                <Label htmlFor="t2score">Team 2 Score</Label>
+                            </div>
                             <Input
                                 id="t2score"
                                 type="number"
@@ -627,8 +651,7 @@ export default function MatchFormDialog({
                             {errors.team2Score && <p className="text-red-500 text-sm">Score is required and must be 0 or more.</p>}
                         </div>
 
-                         {/* Played At */}
-                         <div className="space-y-2">
+                        <div className="space-y-2">
                             <Label htmlFor="playedAt">
                                 Played At
                             </Label>

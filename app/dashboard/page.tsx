@@ -56,6 +56,7 @@ interface GroupDoc extends DocumentData {
         teamOne: string;
         teamTwo: string;
     };
+    groupColor?: string; // Added group color field
 }
 
 const formatAdminDisplayName = (fullName: string | null | undefined): string => {
@@ -82,7 +83,7 @@ export default function DashboardPage() {
   const [groupToManage, setGroupToManage] = useState<GroupDoc | null>(null);
   const [manageGuestNameInput, setManageGuestNameInput] = useState('');
   const [currentGuests, setCurrentGuests] = useState<GuestData[]>([]);
-  const [membersToRemove, setMembersToRemove] = useState<string[]>([]); 
+  const [membersToRemove, setMembersToRemove] = useState<string[]>([]);
   const [isManagingMembers, setIsManagingMembers] = useState(false);
 
   useEffect(() => {
@@ -111,7 +112,7 @@ export default function DashboardPage() {
       });
 
       return () => unsubscribe();
-    } else if (!user) {
+    } else if (!user && !loading) { // Ensure loading is false before clearing groups
       setGroups([]);
       setGroupsLoading(false);
     }
@@ -119,32 +120,28 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (isManageMembersDialogOpen && groupToManage) {
-        // Convert existing guests to the new format with IDs if needed
         const guests = groupToManage.guests || [];
-        const guestsWithIds: GuestData[] = Array.isArray(guests) 
+        const guestsWithIds: GuestData[] = Array.isArray(guests)
             ? guests.map(guest => {
-                // Handle string format (backward compatibility)
                 if (typeof guest === 'string') {
                     return { id: uuidv4(), name: guest };
-                } 
-                // Handle object format
+                }
                 else if (typeof guest === 'object' && guest !== null) {
-                    // Check if the object has id and name properties
                     const tempGuest = guest as unknown as { id?: string; name?: string };
-                    return { 
-                        id: typeof tempGuest.id === 'string' ? tempGuest.id : uuidv4(), 
+                    return {
+                        id: typeof tempGuest.id === 'string' ? tempGuest.id : uuidv4(),
                         name: typeof tempGuest.name === 'string' ? tempGuest.name : ''
                     };
                 }
-                // Fallback case
                 return { id: uuidv4(), name: String(guest) };
             })
             : [];
-            
+
         setCurrentGuests(guestsWithIds);
         setMembersToRemove([]);
         setManageGuestNameInput('');
     } else {
+        // Reset state when dialog closes or groupToManage is null
         setGroupToManage(null);
         setCurrentGuests([]);
         setMembersToRemove([]);
@@ -191,11 +188,9 @@ export default function DashboardPage() {
   const handleAddManageGuest = () => {
       const trimmedName = manageGuestNameInput.trim();
       if (trimmedName) {
-          // Check if a guest with this name already exists
           const existingGuest = currentGuests.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
-          
+
           if (!existingGuest) {
-              // Generate a unique ID for the guest
               const guestId = uuidv4();
               setCurrentGuests([...currentGuests, { id: guestId, name: trimmedName }]);
               setManageGuestNameInput('');
@@ -218,10 +213,9 @@ export default function DashboardPage() {
 
       try {
           const groupRef = doc(db, "groups", groupToManage.id);
-          // Define a more specific type for updateData
-          const updateData: { 
-              guests: GuestData[]; 
-              [key: string]: GuestData[] | ReturnType<typeof deleteField> 
+          const updateData: {
+              guests: GuestData[];
+              [key: string]: GuestData[] | ReturnType<typeof deleteField>
           } = {
               guests: currentGuests
           };
@@ -230,24 +224,23 @@ export default function DashboardPage() {
               updateData[`members.${uid}`] = deleteField();
           });
 
-          // Compare if the guest list has actually changed
           const originalGuests = groupToManage.guests || [];
-          const guestsChanged = currentGuests.length !== originalGuests.length || 
+          const guestsChanged = currentGuests.length !== originalGuests.length ||
               currentGuests.some((guest, i) => {
                   if (i >= originalGuests.length) return true;
-                  
+
                   const origGuest = originalGuests[i];
                   if (typeof origGuest === 'string') {
                       return guest.name !== origGuest;
                   } else if (typeof origGuest === 'object' && origGuest !== null) {
-                      // Safely check name property using a temporary type casting
-                      const tempGuest = origGuest as unknown as { name?: string };
-                      return typeof tempGuest.name === 'string' ? guest.name !== tempGuest.name : true;
+                      const tempGuest = origGuest as unknown as { id?: string; name?: string };
+                      // Compare both id and name for more robust change detection
+                      return guest.id !== tempGuest.id || guest.name !== tempGuest.name;
                   }
-                  return true;
+                  return true; // Treat unknown original format as changed
               });
-              
-          if (Object.keys(updateData).length > 1 || guestsChanged) {
+
+          if (membersToRemove.length > 0 || guestsChanged) {
                await updateDoc(groupRef, updateData);
                toast.success(`Members and guests updated for "${groupToManage.name}".`);
           } else {
@@ -292,13 +285,22 @@ export default function DashboardPage() {
       ) : groups.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {groups.map((group) => (
-            <div key={group.id} className="border rounded-lg p-4 flex flex-col">
-              <div className="flex justify-between items-start mb-2">
+            <div key={group.id} className="border rounded-lg p-4 flex flex-col relative overflow-hidden">
+              {/* Colored Icon Placeholder */}
+              <div
+                className="absolute -top-4 -left-4 w-16 h-16 rounded-full flex items-center justify-center text-2xl opacity-80"
+                style={{ backgroundColor: group.groupColor || '#cccccc' }} // Use group color or default gray
+                aria-hidden="true"
+              >
+                <span className="mt-4 ml-4">⚽</span> {/* Football emoji */}
+              </div>
+
+              <div className="flex justify-between items-start mb-2 pl-10"> {/* Add padding to avoid overlap */}
                 <h2 className="text-xl font-semibold">{group.name}</h2>
                 {user.uid === group.adminUid && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">...</Button>
+                      <Button variant="ghost" size="sm" className="relative z-10">...</Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Group Options</DropdownMenuLabel>
@@ -307,7 +309,7 @@ export default function DashboardPage() {
                         <Users className="mr-2 h-4 w-4" />
                         <span>Manage Members</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={() => handleOpenDeleteDialog(group)}
                         className="text-red-600 focus:text-red-600"
                       >
@@ -318,19 +320,19 @@ export default function DashboardPage() {
                   </DropdownMenu>
                 )}
               </div>
-              
-              <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
-                <span className="inline-block h-3 w-3 rounded-full border" style={{ backgroundColor: group.teamColors.teamOne }}></span>
+
+              <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground pl-10"> {/* Add padding */}
+                <span className="inline-block h-5 w-5 rounded-full border" style={{ backgroundColor: group.teamColors.teamOne }}></span>
                 <span>vs</span>
-                <span className="inline-block h-3 w-3 rounded-full border" style={{ backgroundColor: group.teamColors.teamTwo }}></span>
+                <span className="inline-block h-5 w-5 rounded-full border" style={{ backgroundColor: group.teamColors.teamTwo }}></span>
               </div>
 
               <div className="mt-auto pt-3 border-t flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
                   Admin: {formatAdminDisplayName(group.adminName)}
                 </div>
-                <Button 
-                  variant="default" 
+                <Button
+                  variant="default"
                   size="sm"
                   onClick={() => router.push(`/group/${group.id}`)}
                 >
@@ -347,7 +349,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Use the new GroupFormDialog component */}
       {user && (
         <GroupFormDialog
           isOpen={isCreateGroupOpen}
@@ -356,20 +357,19 @@ export default function DashboardPage() {
         />
       )}
 
-      {/* Delete Group Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to delete this group?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the group 
+              This action cannot be undone. This will permanently delete the group
               &quot;{groupToDelete?.name}&quot; and all associated match data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeletingGroup}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleConfirmDelete} 
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isDeletingGroup}
             >
@@ -379,7 +379,6 @@ export default function DashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Manage Members Dialog */}
       <Dialog open={isManageMembersDialogOpen} onOpenChange={setIsManageMembersDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -390,24 +389,22 @@ export default function DashboardPage() {
           </DialogHeader>
 
           <div className="py-4 space-y-6">
-            {/* Member Management Section */}
             {groupToManage && Object.entries(groupToManage.members).length > 0 && (
               <div>
                 <h3 className="text-sm font-medium mb-2">Members</h3>
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-2"> {/* Added scroll for long member lists */}
                   {Object.entries(groupToManage.members).map(([uid, memberData]) => (
                     <div key={uid} className="flex items-center justify-between p-2 border rounded">
                       <div className="flex items-center gap-2">
                         <Avatar className="h-8 w-8">
-                          <AvatarFallback>{memberData.name?.charAt(0) || '?'}</AvatarFallback>
+                          <AvatarFallback>{memberData.name?.charAt(0)?.toUpperCase() || '?'}</AvatarFallback>
                         </Avatar>
                         <div>
                           <p className="text-sm font-medium">{memberData.name || `User ${uid.substring(0,5)}`}</p>
                           {memberData.isAdmin && <p className="text-xs text-muted-foreground">Admin</p>}
                         </div>
                       </div>
-                      
-                      {/* Don't allow removing admins or yourself */}
+
                       {!memberData.isAdmin && uid !== user.uid && (
                         <Button
                           variant={membersToRemove.includes(uid) ? "destructive" : "outline"}
@@ -424,7 +421,6 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Guest Management Section */}
             <div>
               <h3 className="text-sm font-medium mb-2">Guest Players</h3>
               <div className="space-y-3">
@@ -449,9 +445,9 @@ export default function DashboardPage() {
                     <UserPlus className="h-4 w-4" />
                   </Button>
                 </div>
-                
+
                 {currentGuests.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-2"> {/* Added scroll for guests */}
                     {currentGuests.map(guest => (
                       <div key={guest.id} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm">
                         {guest.name}
@@ -479,9 +475,9 @@ export default function DashboardPage() {
             <DialogClose asChild>
               <Button variant="outline" disabled={isManagingMembers}>Cancel</Button>
             </DialogClose>
-            <Button 
-              onClick={handleSaveChanges} 
-              disabled={isManagingMembers}
+            <Button
+              onClick={handleSaveChanges}
+              disabled={isManagingMembers || (membersToRemove.length === 0 && JSON.stringify(currentGuests.map(g => ({id: g.id, name: g.name})).sort((a,b) => a.name.localeCompare(b.name))) === JSON.stringify((groupToManage?.guests || []).map(g => typeof g === 'string' ? {id: 'unknown', name: g} : {id: (g as GuestData).id, name: (g as GuestData).name}).sort((a,b) => a.name.localeCompare(b.name))))} // Disable save if no changes
             >
               {isManagingMembers ? 'Saving...' : 'Save Changes'}
             </Button>

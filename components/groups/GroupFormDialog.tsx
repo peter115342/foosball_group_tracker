@@ -48,7 +48,7 @@ interface GroupFormDialogProps {
   user: User;
 }
 
-const predefinedColors = [
+const predefinedTeamColors = [
   { name: 'Red', hex: '#FF0000' },
   { name: 'Blue', hex: '#0000FF' },
   { name: 'Green', hex: '#008000' },
@@ -59,22 +59,43 @@ const predefinedColors = [
   { name: 'White', hex: '#FFFFFF' },
 ];
 
-export default function GroupFormDialog({ 
-  isOpen, 
-  onOpenChange, 
-  user 
+const readableGroupColors = [
+  '#FF6B6B', // Light Red
+  '#4ECDC4', // Turquoise
+  '#45B7D1', // Sky Blue
+  '#FED766', // Light Yellow
+  '#F8A5C2', // Pink
+  '#8A84E2', // Lavender
+  '#54A0FF', // Bright Blue
+  '#50C878', // Emerald Green
+  '#FF9F43', // Orange Peel
+  '#A55EEA', // Medium Purple
+  '#FF7F50', // Coral
+  '#1DD1A1', // Mint Green
+];
+
+const getRandomGroupColor = () => {
+  const randomIndex = Math.floor(Math.random() * readableGroupColors.length);
+  return readableGroupColors[randomIndex];
+};
+
+
+export default function GroupFormDialog({
+  isOpen,
+  onOpenChange,
+  user
 }: GroupFormDialogProps) {
   const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
   const [createGuestNameInput, setCreateGuestNameInput] = useState('');
   const [createGuestMembers, setCreateGuestMembers] = useState<GuestData[]>([]);
 
-  const { 
-    register, 
-    handleSubmit, 
-    reset, 
-    formState: { errors }, 
-    setValue, 
-    watch 
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+    setValue,
+    watch
   } = useForm<GroupFormInputs>({
     defaultValues: {
       groupName: "",
@@ -90,7 +111,7 @@ export default function GroupFormDialog({
     const trimmedName = createGuestNameInput.trim();
     if (trimmedName) {
       const existingGuest = createGuestMembers.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
-      
+
       if (!existingGuest) {
         const guestId = uuidv4();
         setCreateGuestMembers([...createGuestMembers, { id: guestId, name: trimmedName }]);
@@ -124,6 +145,8 @@ export default function GroupFormDialog({
         isAdmin: true
       };
 
+      const selectedGroupColor = getRandomGroupColor();
+
       const newGroupData = {
         name: data.groupName,
         adminUid: user.uid,
@@ -135,10 +158,11 @@ export default function GroupFormDialog({
           teamOne: data.teamOneColor,
           teamTwo: data.teamTwoColor,
         },
+        groupColor: selectedGroupColor,
       };
       await addDoc(groupsCollectionRef, newGroupData);
       toast.success("Group created successfully!");
-      
+
       onOpenChange(false);
       reset();
       setCreateGuestMembers([]);
@@ -172,8 +196,8 @@ export default function GroupFormDialog({
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="groupName" className="text-right">Group Name</Label>
-              <Input 
-                id="groupName" 
+              <Input
+                id="groupName"
                 className="col-span-3"
                 {...register("groupName", { required: "Group name is required" })}
                 disabled={isSubmittingGroup}
@@ -185,18 +209,18 @@ export default function GroupFormDialog({
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="teamOneColor" className="text-right">Team 1 Color</Label>
-              <div className="col-span-3 flex gap-2">
-                <Input 
-                  id="teamOneColor" 
+              <div className="col-span-3 flex gap-2 items-center">
+                <Input
+                  id="teamOneColor"
                   type="color"
-                  className="w-12 h-10 p-1 cursor-pointer"
+                  className="w-10 h-10 p-1 cursor-pointer"
                   {...register("teamOneColor")}
                   disabled={isSubmittingGroup}
                 />
                 <div className="flex flex-wrap gap-1 flex-1">
-                  {predefinedColors.map(color => (
+                  {predefinedTeamColors.map(color => (
                     <button
-                      key={color.name}
+                      key={color.name + '1'}
                       type="button"
                       title={color.name}
                       className={`w-6 h-6 rounded-full border ${watchedTeamOneColor === color.hex ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
@@ -211,18 +235,18 @@ export default function GroupFormDialog({
 
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="teamTwoColor" className="text-right">Team 2 Color</Label>
-              <div className="col-span-3 flex gap-2">
-                <Input 
-                  id="teamTwoColor" 
+              <div className="col-span-3 flex gap-2 items-center">
+                <Input
+                  id="teamTwoColor"
                   type="color"
-                  className="w-12 h-10 p-1 cursor-pointer"
+                  className="w-10 h-10 p-1 cursor-pointer"
                   {...register("teamTwoColor")}
                   disabled={isSubmittingGroup}
                 />
                 <div className="flex flex-wrap gap-1 flex-1">
-                  {predefinedColors.map(color => (
+                  {predefinedTeamColors.map(color => (
                     <button
-                      key={color.name}
+                      key={color.name + '2'}
                       type="button"
                       title={color.name}
                       className={`w-6 h-6 rounded-full border ${watchedTeamTwoColor === color.hex ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
@@ -239,7 +263,7 @@ export default function GroupFormDialog({
               <Label className="text-right pt-2">Guest Players</Label>
               <div className="col-span-3 space-y-3">
                 <div className="flex gap-2">
-                  <Input 
+                  <Input
                     placeholder="Add guest name"
                     value={createGuestNameInput}
                     onChange={(e) => setCreateGuestNameInput(e.target.value)}
@@ -251,9 +275,9 @@ export default function GroupFormDialog({
                       }
                     }}
                   />
-                  <Button 
-                    type="button" 
-                    onClick={handleAddGuest} 
+                  <Button
+                    type="button"
+                    onClick={handleAddGuest}
                     disabled={!createGuestNameInput.trim() || isSubmittingGroup}
                   >
                     <UserPlus className="h-4 w-4" />
@@ -264,11 +288,11 @@ export default function GroupFormDialog({
                     {createGuestMembers.map(guest => (
                       <div key={guest.id} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm">
                         {guest.name}
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="sm" 
-                          className="p-0 h-auto ml-1" 
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="p-0 h-auto ml-1"
                           onClick={() => handleRemoveGuest(guest.id)}
                           disabled={isSubmittingGroup}
                         >
@@ -281,7 +305,7 @@ export default function GroupFormDialog({
               </div>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button type="submit" disabled={isSubmittingGroup}>
               {isSubmittingGroup ? 'Creating...' : 'Create Group'}
