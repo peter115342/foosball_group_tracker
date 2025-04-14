@@ -69,7 +69,7 @@ const formatAdminDisplayName = (fullName: string | null | undefined): string => 
 };
 
 export default function DashboardPage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading} = useAuth();
   const router = useRouter();
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [groups, setGroups] = useState<GroupDoc[]>([]);
@@ -272,7 +272,6 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold">Your Groups</h1>
         <div className="flex gap-4">
           <Button onClick={() => setIsCreateGroupOpen(true)}>Create Group</Button>
-          <Button variant="outline" onClick={logout}>Logout</Button>
         </div>
       </header>
 
