@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/authContext';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { v4 as uuidv4 } from 'uuid';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,8 +24,8 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { db } from '@/lib/firebase/config';
-import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc,} from "firebase/firestore";
-import { Edit, Trash2,Users, Copy } from 'lucide-react';
+import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc} from "firebase/firestore";
+import {Trash2,Users, Copy, Edit } from 'lucide-react';
 import { toast } from "sonner";
 import GroupFormDialog from '@/components/groups/GroupFormDialog';
 import JoinGroupForm from '@/components/groups/JoinGroupForm';
@@ -35,7 +33,7 @@ import ManageMembersDialog from '@/components/groups/ManageMembersDialog';
 
 interface MemberData {
     name: string;
-    role: 'admin' | 'editor' | 'viewer';
+    role: 'editor' | 'viewer';
 }
 
 interface GuestData {
@@ -92,7 +90,7 @@ export default function DashboardPage() {
     if (user && !loading) {
       setGroupsLoading(true);
       const groupsCollectionRef = collection(db, "groups");
-      const q = query(groupsCollectionRef, where(`members.${user.uid}.role`, "in", ["admin", "editor", "viewer"]));
+      const q = query(groupsCollectionRef, where(`members.${user.uid}.role`, "in", ["admin","editor", "viewer"]));
 
       const unsubscribe = onSnapshot(q, (querySnapshot: QuerySnapshot<DocumentData>) => {
         const userGroups: GroupDoc[] = [];
@@ -194,25 +192,29 @@ export default function DashboardPage() {
 
               <div className="flex justify-between items-start mb-2 pl-10">
                 <h2 className="text-xl font-semibold">{group.name}</h2>
-                {user.uid === group.adminUid && (
+                {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="relative z-10"><Edit className="h-6 w-" /></Button>
+                      <Button variant="ghost" size="sm" className="relative z-10">
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Group Options</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleOpenManageMembersDialog(group)}>
                         <Users className="mr-2 h-4 w-4" />
-                        <span>Manage Group</span>
+                        <span>{user.uid === group.adminUid ? "Manage Group" : "View Details"}</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleOpenDeleteDialog(group)}
-                        className="text-red-600 focus:text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Delete Group</span>
-                      </DropdownMenuItem>
+                      {user.uid === group.adminUid && (
+                        <DropdownMenuItem
+                          onClick={() => handleOpenDeleteDialog(group)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Delete Group</span>
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
@@ -224,7 +226,7 @@ export default function DashboardPage() {
                 <span className="inline-block h-5 w-5 rounded-full border" style={{ backgroundColor: group.teamColors.teamTwo }}></span>
               </div>
 
-              {user.uid === group.adminUid && group.inviteCode && (
+              {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && group.inviteCode && (
                 <div className="mt-2 mb-2 pt-2 border-t">
                   <div className="flex items-center justify-between">
                     <div className="text-xs text-muted-foreground">

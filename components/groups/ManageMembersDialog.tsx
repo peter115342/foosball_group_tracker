@@ -29,7 +29,7 @@ const generateInviteCode = (): string => {
 
 interface MemberData {
   name: string;
-  role: 'viewer' | 'editor' | 'admin';
+  role: 'viewer' | 'editor';
 }
 
 interface GroupMembersProps {
@@ -48,18 +48,18 @@ export default function ManageMembersDialog({
 }: GroupMembersProps) {
   const [members, setMembers] = useState<{[uid: string]: MemberData}>({});
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isEditor, setIsEditor] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   useEffect(() => {
     if (isOpen && group) {
       setMembers(group.members || {});
-      setIsAdmin(
-        group.members?.[currentUser.uid]?.role === 'admin'
-      );
+      setIsAdmin(currentUser.uid === group.adminUid);
+      setIsEditor(group.members?.[currentUser.uid]?.role === 'editor' || currentUser.uid === group.adminUid);
     }
   }, [isOpen, group, currentUser]);
 
-  const handleRoleChange = (uid: string, newRole: 'viewer' | 'editor' | 'admin') => {
+  const handleRoleChange = (uid: string, newRole: 'viewer' | 'editor') => {
     if (!isAdmin) return;
     setMembers(prev => ({
       ...prev,
@@ -118,15 +118,17 @@ export default function ManageMembersDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle>Manage Group Members</DialogTitle>
+          <DialogTitle>Manage Group</DialogTitle>
           <DialogDescription>
-            Manage members and their roles for &quot;{group?.name}&quot;
+            {isAdmin 
+              ? "Manage members and their roles for" 
+              : "View members of"} &quot;{group?.name}&quot;
           </DialogDescription>
         </DialogHeader>
         
         <div className="py-4 space-y-6">
           {/* Invite Code Display */}
-          {group && (
+          {group && isEditor && (
             <InviteCodeDisplay 
               groupName={group.name}
               inviteCode={group.inviteCode}
@@ -146,13 +148,14 @@ export default function ManageMembersDialog({
                       <AvatarFallback>{memberData.name?.charAt(0)?.toUpperCase() || '?'}</AvatarFallback>
                     </Avatar>
                     <span>{memberData.name}</span>
+                    {uid === group?.adminUid && <span className="ml-1 text-xs text-muted-foreground">(Admin)</span>}
                   </div>
                   
-                  {isAdmin && (
+                  {isAdmin && uid !== group?.adminUid && (
                     <Select
                       value={memberData.role}
-                      onValueChange={(value) => handleRoleChange(uid, value as 'viewer' | 'editor' | 'admin')}
-                      disabled={!isAdmin || uid === currentUser.uid} // Can't change own role
+                      onValueChange={(value) => handleRoleChange(uid, value as 'viewer' | 'editor')}
+                      disabled={!isAdmin}
                     >
                       <SelectTrigger className="w-[110px]">
                         <SelectValue placeholder="Select role" />
@@ -160,7 +163,6 @@ export default function ManageMembersDialog({
                       <SelectContent>
                         <SelectItem value="viewer">Viewer</SelectItem>
                         <SelectItem value="editor">Editor</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
@@ -172,7 +174,7 @@ export default function ManageMembersDialog({
         
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">Close</Button>
           </DialogClose>
           {isAdmin && (
             <Button 

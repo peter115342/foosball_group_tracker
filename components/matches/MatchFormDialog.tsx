@@ -225,38 +225,58 @@ export default function MatchFormDialog({
         }
 
         try {
-            const getPlayerDetails = (playerId: string | undefined, position?: 'attack' | 'defense'): PlayerWithPosition | null => {
+            const getPlayerDetails = (playerId: string | undefined, positionParam?: 'attack' | 'defense'): PlayerWithPosition | null => {
                 if (!playerId) return null;
-
+                
+                // Keep the position as is, don't convert undefined to null
+                const safePosition = positionParam;
+                
                 if (typeof playerId !== 'string' || playerId.includes('[object Object]')) {
                     console.error("Invalid player ID detected:", playerId);
                     return null;
                 }
-
+                
+                let playerData: PlayerWithPosition;
+                
                 if (playerId.startsWith(GUEST_PREFIX)) {
                     const guestPlayer = normalizedPlayers.find(p => p.uid === playerId);
                     if (guestPlayer) {
-                        return { 
+                        playerData = { 
                             uid: playerId, 
-                            displayName: guestPlayer.displayName.replace(' (Guest)', ''),
-                            position: position
+                            displayName: (guestPlayer.displayName || '').replace(' (Guest)', '') || 'Guest',
+                            position: safePosition
+                        };
+                    } else {
+                        const guestId = playerId.substring(GUEST_PREFIX.length);
+                        playerData = { 
+                            uid: playerId, 
+                            displayName: `Guest ${guestId.substring(0, 5)}`,
+                            position: safePosition
                         };
                     }
-                    
-                    const guestId = playerId.substring(GUEST_PREFIX.length);
-                    return { 
-                        uid: playerId, 
-                        displayName: `Guest ${guestId.substring(0, 5)}`,
-                        position: position
-                    };
                 } else {
                     const member = members.find(m => m.uid === playerId);
-                    return member ? { 
-                        uid: member.uid, 
-                        displayName: member.displayName,
-                        position: position
-                    } : null;
+                    if (member) {
+                        playerData = { 
+                            uid: member.uid || playerId, 
+                            displayName: member.displayName || 'Player',
+                            position: safePosition
+                        };
+                    } else {
+                        playerData = {
+                            uid: playerId,
+                            displayName: 'Unknown Player',
+                            position: safePosition
+                        };
+                    }
                 }
+                
+                // Final check - don't convert undefined to null
+                return {
+                    uid: playerData.uid || `player_${Date.now()}`,
+                    displayName: playerData.displayName || 'Player',
+                    position: playerData.position
+                };
             };
 
             const team1Players = data.gameType === '1v1' 
@@ -275,39 +295,81 @@ export default function MatchFormDialog({
 
             const filteredTeam1Players = team1Players.filter(Boolean) as PlayerWithPosition[];
             const filteredTeam2Players = team2Players.filter(Boolean) as PlayerWithPosition[];
+            
+            if (filteredTeam1Players.length === 0 || filteredTeam2Players.length === 0) {
+                toast.error("Error", { description: "Invalid player selections. Please try again." });
+                setIsSubmittingMatch(false);
+                return;
+            }
 
             let winner: 'team1' | 'team2' | 'draw';
             if (data.team1Score > data.team2Score) winner = 'team1';
             else if (data.team2Score > data.team1Score) winner = 'team2';
             else winner = 'draw';
 
+            // Function to clean any object of undefined values
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const cleanObject = (obj: any): any => {
+                if (obj === null || obj === undefined) return null;
+                if (typeof obj !== 'object') return obj;
+                
+                if (Array.isArray(obj)) {
+                    return obj.map(item => cleanObject(item));
+                }
+                
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const cleaned: any = {};
+                for (const key in obj) {
+                    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                        if (obj[key] !== undefined) {
+                            cleaned[key] = cleanObject(obj[key]);
+                        }
+                    }
+                }
+                return cleaned;
+            };
+
             const matchDocData = {
-                groupId: groupId,
+                groupId: groupId || '',
                 playedAt: data.playedAt ? Timestamp.fromDate(new Date(data.playedAt)) : Timestamp.now(),
-                gameType: data.gameType,
+                gameType: data.gameType || '1v1',
                 team1: {
-                    color: group.teamColors.teamOne,
-                    score: Number(data.team1Score),
-                    players: filteredTeam1Players,
+                    color: (group?.teamColors?.teamOne) || '#FF0000',
+                    score: Number(data.team1Score) || 0,
+                    players: filteredTeam1Players.map(player => ({
+                        uid: player?.uid || `player_${Math.random().toString(36).substring(2, 9)}`,
+                        displayName: player?.displayName || 'Player',
+                        position: player?.position
+                    }))
                 },
                 team2: {
-                    color: group.teamColors.teamTwo,
-                    score: Number(data.team2Score),
-                    players: filteredTeam2Players,
+                    color: (group?.teamColors?.teamTwo) || '#0000FF',
+                    score: Number(data.team2Score) || 0,
+                    players: filteredTeam2Players.map(player => ({
+                        uid: player?.uid || `player_${Math.random().toString(36).substring(2, 9)}`,
+                        displayName: player?.displayName || 'Player',
+                        position: player?.position
+                    }))
                 },
-                winner: winner,
+                winner: winner || 'draw',
             };
+
+            // Clean the object to remove any undefined values
+            const cleanedMatchData = cleanObject(matchDocData);
+            
+            // Log the final data for debugging
+            console.log("Final match data:", JSON.stringify(cleanedMatchData, null, 2));
 
             if (editingMatch) {
                 const matchRef = doc(db, "matches", editingMatch.id);
                 await updateDoc(matchRef, {
-                    ...matchDocData,
+                    ...cleanedMatchData,
                     updatedAt: serverTimestamp()
                 });
                 toast.success("Match updated successfully!");
             } else {
                 await addDoc(collection(db, "matches"), {
-                    ...matchDocData,
+                    ...cleanedMatchData,
                     createdAt: serverTimestamp(),
                 });
                 toast.success("Match added successfully!");

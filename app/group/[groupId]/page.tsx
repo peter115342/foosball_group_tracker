@@ -126,6 +126,7 @@ export default function GroupDetailPage() {
     const [matchToDelete, setMatchToDelete] = useState<string | null>(null);
 
     const isAdmin = user?.uid === group?.adminUid;
+    const canEditMatches = isAdmin || group?.members[user?.uid || '']?.role === 'editor';
 
     useEffect(() => {
         if (!groupId || authLoading) return;
@@ -153,18 +154,28 @@ export default function GroupDetailPage() {
 
                 setGroup(groupData);
 
-                const fetchedMembers: Member[] = Object.entries(groupData.members)
-                    .filter(([, memberData]) => memberData.role === 'admin' || memberData.role === 'editor' || memberData.role === 'viewer')
-                    .map(([uid, memberData]) => ({
-                        uid: uid,
-                        displayName: memberData.name || `User ${uid.substring(0, 5)}`
-                    }));
+                // Make sure we get valid members
+                const fetchedMembers: Member[] = [];
+                if (groupData.members) {
+                    Object.entries(groupData.members).forEach(([uid, memberData]) => {
+                        if (uid && memberData && typeof uid === 'string') {
+                            fetchedMembers.push({
+                                uid: uid,
+                                displayName: memberData.name || `User ${uid.substring(0, 5)}`
+                            });
+                        }
+                    });
+                }
                 setMembers(fetchedMembers);
 
+                // Make sure we get valid guests
                 const guests: SelectablePlayer[] = [];
                 if (Array.isArray(groupData.guests)) {
                     groupData.guests.forEach((guest, i) => {
-                        if (guest && typeof guest.id === 'string' && typeof guest.name === 'string') {
+                        if (guest && typeof guest === 'object' && 
+                            'id' in guest && 'name' in guest &&
+                            typeof guest.id === 'string' && 
+                            typeof guest.name === 'string') {
                             guests.push({
                                 uid: `${GUEST_PREFIX}${guest.id}`,
                                 displayName: `${guest.name} (Guest)`
@@ -175,10 +186,12 @@ export default function GroupDetailPage() {
                     });
                 }
 
-                const combinedPlayers = [...fetchedMembers, ...guests].sort((a, b) =>
-                    a.displayName.localeCompare(b.displayName)
-                );
-                setSelectablePlayers(combinedPlayers);
+                // Combine and validate before setting
+                const validPlayers = [...fetchedMembers, ...guests]
+                    .filter(player => player && typeof player.uid === 'string' && typeof player.displayName === 'string')
+                    .sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+                    
+                setSelectablePlayers(validPlayers);
 
             } else {
                 setError("Group not found.");
@@ -245,7 +258,7 @@ export default function GroupDetailPage() {
     };
 
     const handleConfirmDelete = async () => {
-        if (!matchToDelete || !isAdmin) {
+        if (!matchToDelete || !canEditMatches) {
              toast.error("Unauthorized or match not selected.");
              setIsDeleteDialogOpen(false);
              setMatchToDelete(null);
@@ -337,13 +350,15 @@ export default function GroupDetailPage() {
             <main>
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-semibold">Match History</h2>
-                    <Button
-                        onClick={handleOpenAddMatchDialog}
-                        disabled={selectablePlayers.length < 1}
-                        size="sm"
-                    >
-                        Add Match
-                    </Button>
+                    {canEditMatches && (
+                        <Button
+                            onClick={handleOpenAddMatchDialog}
+                            disabled={selectablePlayers.length < 1}
+                            size="sm"
+                        >
+                            Add Match
+                        </Button>
+                    )}
                 </div>
 
                 <div className="space-y-4">
@@ -428,7 +443,7 @@ export default function GroupDetailPage() {
                                     </p>
                                 </div>
 
-                                {isAdmin && (
+                                {canEditMatches && (
                                     <div className="flex gap-2 flex-shrink-0 sm:pt-1">
                                         <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenEditMatchDialog(match)}>
                                             <Edit className="h-4 w-4" />
@@ -445,13 +460,15 @@ export default function GroupDetailPage() {
                     ) : (
                         <div className="text-center py-12 border rounded-lg bg-muted/40">
                             <p className="text-muted-foreground mb-3">No matches have been recorded yet.</p>
-                            <Button
-                                onClick={handleOpenAddMatchDialog}
-                                disabled={selectablePlayers.length < 1}
-                                size="sm"
-                            >
-                                Record First Match
-                            </Button>
+                            {canEditMatches && (
+                                <Button
+                                    onClick={handleOpenAddMatchDialog}
+                                    disabled={selectablePlayers.length < 1}
+                                    size="sm"
+                                >
+                                    Record First Match
+                                </Button>
+                            )}
                         </div>
                     )}
                 </div>
