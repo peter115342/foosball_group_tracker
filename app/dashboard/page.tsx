@@ -24,7 +24,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { db } from '@/lib/firebase/config';
-import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc} from "firebase/firestore";
+import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc, increment, getDoc, updateDoc } from "firebase/firestore";
 import {Trash2,Users, Copy, Edit } from 'lucide-react';
 import { toast } from "sonner";
 import GroupFormDialog from '@/components/groups/GroupFormDialog';
@@ -79,6 +79,12 @@ export default function DashboardPage() {
 
   const [isManageMembersDialogOpen, setIsManageMembersDialogOpen] = useState(false);
   const [groupToManage, setGroupToManage] = useState<GroupDoc | null>(null);
+  
+  const [rateLimit, setRateLimit] = useState<{
+    groupCount: number;
+    lastGroupCreation: Date | null;
+    cooldownRemaining: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -111,6 +117,53 @@ export default function DashboardPage() {
       setGroupsLoading(false);
     }
   }, [user, loading]);
+  
+  useEffect(() => {
+    if (user && !loading) {
+      const fetchRateLimits = async () => {
+        try {
+          const ratelimitRef = doc(db, 'ratelimits', user.uid);
+          const ratelimitDoc = await getDoc(ratelimitRef);
+          
+          if (ratelimitDoc.exists()) {
+            const data = ratelimitDoc.data();
+            const lastCreation = data.lastGroupCreation ? 
+              data.lastGroupCreation.toDate() : null;
+            
+            let cooldownRemaining = 0;
+            if (lastCreation) {
+              const cooldownEnd = new Date(lastCreation.getTime() + (60 * 1000)); // 1 min
+              cooldownRemaining = Math.max(0, 
+                Math.floor((cooldownEnd.getTime() - Date.now()) / 1000));
+            }
+            
+            setRateLimit({
+              groupCount: data.groupCount || 0,
+              lastGroupCreation: lastCreation,
+              cooldownRemaining
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching rate limits:", error);
+        }
+      };
+      
+      fetchRateLimits();
+      
+      // Set up an interval to update the cooldown timer
+      if (rateLimit && rateLimit.cooldownRemaining > 0) {
+        const interval = setInterval(() => {
+          setRateLimit(prev => {
+            if (!prev) return prev;
+            const newRemaining = Math.max(0, prev.cooldownRemaining - 1);
+            return { ...prev, cooldownRemaining: newRemaining };
+          });
+        }, 1000);
+        
+        return () => clearInterval(interval);
+      }
+    }
+  }, [user, loading, rateLimit?.cooldownRemaining]);
 
   const handleOpenDeleteDialog = (group: GroupDoc) => {
       setGroupToDelete(group);
@@ -126,6 +179,13 @@ export default function DashboardPage() {
       try {
           const groupRef = doc(db, "groups", groupToDelete.id);
           await deleteDoc(groupRef);
+          
+          // Decrement group count in rate limits
+          const ratelimitRef = doc(db, 'ratelimits', user.uid);
+          await updateDoc(ratelimitRef, {
+            groupCount: increment(-1)
+          });
+          
           toast.success(`Group "${groupToDelete.name}" deleted successfully.`);
           setGroupToDelete(null);
           setIsDeleteDialogOpen(false);
@@ -161,14 +221,31 @@ export default function DashboardPage() {
     <div className="container mx-auto py-8 px-4 md:px-8">
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Your Groups</h1>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {rateLimit && (
+            <div className="text-sm text-muted-foreground mr-4">
+              <span className="font-semibold">{20 - rateLimit.groupCount}</span> groups remaining for this user
+              {rateLimit.cooldownRemaining > 0 && (
+                <span className="ml-2">
+                  • Next in {Math.floor(rateLimit.cooldownRemaining / 60)}m {rateLimit.cooldownRemaining % 60}s
+                </span>
+              )}
+            </div>
+          )}
           <Button 
             variant="outline" 
             onClick={() => setIsJoinGroupOpen(true)}
           >
             Join Group
           </Button>
-          <Button onClick={() => setIsCreateGroupOpen(true)}>Create Group</Button>
+          <Button 
+            onClick={() => setIsCreateGroupOpen(true)}
+            disabled={rateLimit ? rateLimit.cooldownRemaining > 0 : false}
+          >
+            {rateLimit && rateLimit.cooldownRemaining > 0 
+              ? `Create Group (${Math.floor(rateLimit.cooldownRemaining / 60)}:${(rateLimit.cooldownRemaining % 60).toString().padStart(2, '0')})` 
+              : 'Create Group'}
+          </Button>
         </div>
       </header>
 
@@ -266,7 +343,14 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mb-4">You have not created or joined any groups yet.</p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => setIsJoinGroupOpen(true)}>Join a Group</Button>
-            <Button onClick={() => setIsCreateGroupOpen(true)}>Create Your First Group</Button>
+            <Button 
+              onClick={() => setIsCreateGroupOpen(true)}
+              disabled={rateLimit ? rateLimit.cooldownRemaining > 0 : false}
+            >
+              {rateLimit && rateLimit.cooldownRemaining > 0 
+                ? `Create Group (${Math.floor(rateLimit.cooldownRemaining / 60)}:${(rateLimit.cooldownRemaining % 60).toString().padStart(2, '0')})` 
+                : 'Create Your First Group'}
+            </Button>
           </div>
         </div>
       )}

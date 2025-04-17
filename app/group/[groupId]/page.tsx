@@ -104,6 +104,44 @@ const formatPosition = (position?: string, gameType?: string): string => {
     }
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const formatPlayedAt = (timestamp: any) => {
+  try {
+    // Handle Firestore timestamp (with toDate method)
+    if (timestamp && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate().toLocaleDateString(undefined, { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    } 
+    // Handle timestamp stored as an object with seconds and nanoseconds
+    else if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
+      const date = new Date(timestamp.seconds * 1000);
+      return date.toLocaleDateString(undefined, { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    }
+    // Handle date string
+    else if (timestamp && typeof timestamp === 'string') {
+      const date = new Date(timestamp);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleDateString(undefined, { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric'
+        });
+      }
+    }
+    return 'Invalid date';
+  } catch (err) {
+    console.error("Error formatting date:", err, timestamp);
+    return 'Date format error';
+  }
+};
+
 const GUEST_PREFIX = 'guest_';
 
 export default function GroupDetailPage() {
@@ -154,7 +192,6 @@ export default function GroupDetailPage() {
 
                 setGroup(groupData);
 
-                // Make sure we get valid members
                 const fetchedMembers: Member[] = [];
                 if (groupData.members) {
                     Object.entries(groupData.members).forEach(([uid, memberData]) => {
@@ -168,7 +205,6 @@ export default function GroupDetailPage() {
                 }
                 setMembers(fetchedMembers);
 
-                // Make sure we get valid guests
                 const guests: SelectablePlayer[] = [];
                 if (Array.isArray(groupData.guests)) {
                     groupData.guests.forEach((guest, i) => {
@@ -186,7 +222,6 @@ export default function GroupDetailPage() {
                     });
                 }
 
-                // Combine and validate before setting
                 const validPlayers = [...fetchedMembers, ...guests]
                     .filter(player => player && typeof player.uid === 'string' && typeof player.displayName === 'string')
                     .sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
@@ -439,7 +474,7 @@ export default function GroupDetailPage() {
                                     </div>
 
                                     <p className="text-xs text-muted-foreground">
-                                        Played: {match.playedAt?.toDate().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) ?? 'Unknown date'}
+                                        Played: {formatPlayedAt(match.playedAt)}
                                     </p>
                                 </div>
 

@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase/config';
+import { auth, db } from '@/lib/firebase/config';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter, usePathname } from 'next/navigation';
 import { Skeleton } from "@/components/ui/skeleton"; // For loading state
 
@@ -32,7 +33,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        // Initialize rate limits for the user if they don't exist
+        const ratelimitRef = doc(db, 'ratelimits', currentUser.uid);
+        try {
+          const ratelimitDoc = await getDoc(ratelimitRef);
+          if (!ratelimitDoc.exists()) {
+            await setDoc(ratelimitRef, {
+              groupCount: 0,
+              lastGroupCreation: serverTimestamp()
+            });
+          }
+        } catch (error) {
+          console.error("Error initializing rate limits:", error);
+        }
+      }
       setUser(currentUser);
       setLoading(false);
     });

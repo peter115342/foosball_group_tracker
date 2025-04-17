@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm, SubmitHandler } from "react-hook-form";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc } from "firebase/firestore";
 import { db } from '@/lib/firebase/config';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
@@ -81,6 +81,10 @@ export default function GroupFormDialog({
   const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
   const [createGuestNameInput, setCreateGuestNameInput] = useState('');
   const [createGuestMembers, setCreateGuestMembers] = useState<GuestData[]>([]);
+  const [rateLimit, setRateLimit] = useState<{
+    remaining: number;
+    nextAvailable: Date | null;
+  } | null>(null);
 
   const {
     register,
@@ -96,6 +100,38 @@ export default function GroupFormDialog({
       teamTwoColor: "#0000FF",
     }
   });
+
+  useEffect(() => {
+    if (user && isOpen) {
+      const fetchRateLimits = async () => {
+        try {
+          const ratelimitRef = doc(db, 'ratelimits', user.uid);
+          const ratelimitDoc = await getDoc(ratelimitRef);
+          
+          if (ratelimitDoc.exists()) {
+            const data = ratelimitDoc.data();
+            const groupsRemaining = 20 - (data.groupCount || 0);
+            
+            let nextAvailable = null;
+            if (data.lastGroupCreation) {
+              const lastCreation = data.lastGroupCreation.toDate();
+              const cooldownTime = new Date(lastCreation.getTime() + (60 * 1000)); // 1 min in ms
+              
+              if (cooldownTime > new Date()) {
+                nextAvailable = cooldownTime;
+              }
+            }
+            
+            setRateLimit({ remaining: groupsRemaining, nextAvailable });
+          }
+        } catch (error) {
+          console.error("Error fetching rate limits:", error);
+        }
+      };
+      
+      fetchRateLimits();
+    }
+  }, [user, isOpen]);
 
   const watchedTeamOneColor = watch('teamOneColor');
   const watchedTeamTwoColor = watch('teamTwoColor');
@@ -124,6 +160,27 @@ export default function GroupFormDialog({
       toast.error("User not logged in.");
       return;
     }
+    
+    if (rateLimit) {
+      if (rateLimit.remaining <= 0) {
+        toast.error("Rate limit exceeded", { 
+          description: "You've reached the maximum number of groups (20) allowed per user." 
+        });
+        return;
+      }
+      
+      if (rateLimit.nextAvailable) {
+        const timeRemaining = Math.ceil((rateLimit.nextAvailable.getTime() - Date.now()) / 1000);
+        const minutes = Math.floor(timeRemaining / 60);
+        const seconds = timeRemaining % 60;
+        
+        toast.error("Rate limit cooldown active", { 
+          description: `Please wait ${minutes}m ${seconds}s before creating another group.` 
+        });
+        return;
+      }
+    }
+    
     setIsSubmittingGroup(true);
     try {
       const groupsCollectionRef = collection(db, "groups");
@@ -157,6 +214,13 @@ export default function GroupFormDialog({
         groupColor: selectedGroupColor,
       };
       await addDoc(groupsCollectionRef, newGroupData);
+      
+      const ratelimitRef = doc(db, 'ratelimits', user.uid);
+      await updateDoc(ratelimitRef, {
+        groupCount: increment(1),
+        lastGroupCreation: serverTimestamp()
+      });
+      
       toast.success("Group created successfully!");
 
       onOpenChange(false);
@@ -165,7 +229,15 @@ export default function GroupFormDialog({
       setCreateGuestNameInput('');
     } catch (error) {
       console.error("Error creating group:", error);
-      toast.error("Error creating group", { description: (error as Error).message });
+      if (error instanceof Error && 
+          error.message.includes("permission") && 
+          error.message.includes("insufficient")) {
+        toast.error("Rate limit reached", { 
+          description: "You must wait 1 minute between creating groups and can create a maximum of 20 groups."
+        });
+      } else {
+        toast.error("Error creating group", { description: (error as Error).message });
+      }
     } finally {
       setIsSubmittingGroup(false);
     }
@@ -188,6 +260,18 @@ export default function GroupFormDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {rateLimit && rateLimit.nextAvailable && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 p-3 rounded-md text-sm">
+            Cooldown active. You can create your next group in {Math.floor((rateLimit.nextAvailable.getTime() - Date.now()) / 60000)}m {Math.floor(((rateLimit.nextAvailable.getTime() - Date.now()) % 60000) / 1000)}s.
+          </div>
+        )}
+
+        {rateLimit && rateLimit.remaining <= 3 && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 p-3 rounded-md text-sm">
+            You have {rateLimit.remaining} group{rateLimit.remaining !== 1 ? 's' : ''} remaining out of 20 maximum.
+          </div>
+        )}
+
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
@@ -196,7 +280,7 @@ export default function GroupFormDialog({
                 id="groupName"
                 className="col-span-3"
                 {...register("groupName", { required: "Group name is required" })}
-                disabled={isSubmittingGroup}
+                disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
               />
               {errors.groupName && (
                 <p className="col-span-4 text-right text-sm text-red-500">{errors.groupName.message}</p>
@@ -211,7 +295,7 @@ export default function GroupFormDialog({
                   type="color"
                   className="w-10 h-10 p-1 cursor-pointer"
                   {...register("teamOneColor")}
-                  disabled={isSubmittingGroup}
+                  disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
                 />
                 <div className="flex flex-wrap gap-1 flex-1">
                   {predefinedTeamColors.map(color => (
@@ -222,7 +306,7 @@ export default function GroupFormDialog({
                       className={`w-6 h-6 rounded-full border ${watchedTeamOneColor === color.hex ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
                       style={{ backgroundColor: color.hex }}
                       onClick={() => setValue("teamOneColor", color.hex)}
-                      disabled={isSubmittingGroup}
+                      disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
                     />
                   ))}
                 </div>
@@ -237,7 +321,7 @@ export default function GroupFormDialog({
                   type="color"
                   className="w-10 h-10 p-1 cursor-pointer"
                   {...register("teamTwoColor")}
-                  disabled={isSubmittingGroup}
+                  disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
                 />
                 <div className="flex flex-wrap gap-1 flex-1">
                   {predefinedTeamColors.map(color => (
@@ -248,7 +332,7 @@ export default function GroupFormDialog({
                       className={`w-6 h-6 rounded-full border ${watchedTeamTwoColor === color.hex ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
                       style={{ backgroundColor: color.hex }}
                       onClick={() => setValue("teamTwoColor", color.hex)}
-                      disabled={isSubmittingGroup}
+                      disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
                     />
                   ))}
                 </div>
@@ -263,7 +347,7 @@ export default function GroupFormDialog({
                     placeholder="Add guest name"
                     value={createGuestNameInput}
                     onChange={(e) => setCreateGuestNameInput(e.target.value)}
-                    disabled={isSubmittingGroup}
+                    disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -274,7 +358,7 @@ export default function GroupFormDialog({
                   <Button
                     type="button"
                     onClick={handleAddGuest}
-                    disabled={!createGuestNameInput.trim() || isSubmittingGroup}
+                    disabled={!createGuestNameInput.trim() || isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
                   >
                     <UserPlus className="h-4 w-4" />
                   </Button>
@@ -290,7 +374,7 @@ export default function GroupFormDialog({
                           size="sm"
                           className="p-0 h-auto ml-1"
                           onClick={() => handleRemoveGuest(guest.id)}
-                          disabled={isSubmittingGroup}
+                          disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
                         >
                           <X className="h-3 w-3" />
                         </Button>
@@ -303,7 +387,10 @@ export default function GroupFormDialog({
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={isSubmittingGroup}>
+            <Button 
+              type="submit" 
+              disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
+            >
               {isSubmittingGroup ? 'Creating...' : 'Create Group'}
             </Button>
           </DialogFooter>

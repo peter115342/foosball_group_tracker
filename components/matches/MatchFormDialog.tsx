@@ -81,9 +81,7 @@ const GUEST_PREFIX = 'guest_';
 const formatTimestampForInput = (timestamp: Timestamp | undefined): string => {
     if (!timestamp) return '';
     const date = timestamp.toDate();
-    const timezoneOffset = date.getTimezoneOffset() * 60000;
-    const localISOTime = new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
-    return localISOTime;
+    return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
 };
 
 interface MatchFormDialogProps {
@@ -96,12 +94,12 @@ interface MatchFormDialogProps {
     members: Array<{ uid: string; displayName: string }>;
 }
 
-export default function MatchFormDialog({ 
-    isOpen, 
-    onOpenChange, 
-    editingMatch, 
-    group, 
-    groupId, 
+export default function MatchFormDialog({
+    isOpen,
+    onOpenChange,
+    editingMatch,
+    group,
+    groupId,
     selectablePlayers,
     members
 }: MatchFormDialogProps) {
@@ -110,31 +108,24 @@ export default function MatchFormDialog({
 
     useEffect(() => {
         const safeSelectablePlayers = Array.isArray(selectablePlayers) ? selectablePlayers : [];
-        
-        console.log("MatchFormDialog received selectablePlayers:", JSON.stringify(safeSelectablePlayers, null, 2));
-        
         const validPlayers: SelectablePlayer[] = [];
-        
+
         for (let i = 0; i < safeSelectablePlayers.length; i++) {
             const player = safeSelectablePlayers[i];
-            console.log(`Processing player ${i}:`, player);
-            
-            if (player && 
-                typeof player.uid === 'string' && 
+
+            if (player &&
+                typeof player.uid === 'string' &&
                 typeof player.displayName === 'string' &&
                 !player.uid.includes('[object Object]')) {
-                
+
                 validPlayers.push({
                     uid: player.uid,
                     displayName: player.displayName
                 });
             } else {
-                console.warn(`Invalid player at index ${i}:`, player);
                 if (player && player.uid && player.uid.includes('[object Object]')) {
-                    console.warn(`Detected [object Object] in player.uid: ${player.uid}`);
                     if (typeof player.displayName === 'string') {
                         const sanitizedUid = `guest_fallback_${i}_${Date.now()}`;
-                        console.log(`Created sanitized UID: ${sanitizedUid}`);
                         validPlayers.push({
                             uid: sanitizedUid,
                             displayName: player.displayName.replace(' (Guest)', '') + ' (Guest)'
@@ -143,13 +134,8 @@ export default function MatchFormDialog({
                 }
             }
         }
-        
-        console.log("Normalized players:", validPlayers);
         setNormalizedPlayers(validPlayers);
-        
-        if (validPlayers.length !== safeSelectablePlayers.length) {
-            console.warn(`MatchFormDialog: Found ${safeSelectablePlayers.length - validPlayers.length} invalid players`);
-        }
+
     }, [selectablePlayers]);
 
     const findPlayerByPosition = (players: PlayerWithPosition[], position: 'attack' | 'defense'): string => {
@@ -158,18 +144,18 @@ export default function MatchFormDialog({
         return player?.uid || '';
     };
 
-    const team1DefensePlayer = editingMatch?.gameType === '2v2' 
+    const team1DefensePlayer = editingMatch?.gameType === '2v2'
         ? findPlayerByPosition(editingMatch.team1.players, 'defense')
         : editingMatch?.team1.players[0]?.uid || '';
-        
+
     const team1AttackPlayer = editingMatch?.gameType === '2v2'
         ? findPlayerByPosition(editingMatch.team1.players, 'attack')
         : '';
-        
+
     const team2DefensePlayer = editingMatch?.gameType === '2v2'
         ? findPlayerByPosition(editingMatch.team2.players, 'defense')
         : editingMatch?.team2.players[0]?.uid || '';
-        
+
     const team2AttackPlayer = editingMatch?.gameType === '2v2'
         ? findPlayerByPosition(editingMatch.team2.players, 'attack')
         : '';
@@ -186,7 +172,7 @@ export default function MatchFormDialog({
             playedAt: formatTimestampForInput(editingMatch?.playedAt || Timestamp.now()),
         }
     });
-    
+
     const watchedGameType = watch('gameType');
 
     const onSubmitMatch: SubmitHandler<MatchFormInputs> = async (data) => {
@@ -227,29 +213,27 @@ export default function MatchFormDialog({
         try {
             const getPlayerDetails = (playerId: string | undefined, positionParam?: 'attack' | 'defense'): PlayerWithPosition | null => {
                 if (!playerId) return null;
-                
-                // Keep the position as is, don't convert undefined to null
+
                 const safePosition = positionParam;
-                
+
                 if (typeof playerId !== 'string' || playerId.includes('[object Object]')) {
-                    console.error("Invalid player ID detected:", playerId);
                     return null;
                 }
-                
+
                 let playerData: PlayerWithPosition;
-                
+
                 if (playerId.startsWith(GUEST_PREFIX)) {
                     const guestPlayer = normalizedPlayers.find(p => p.uid === playerId);
                     if (guestPlayer) {
-                        playerData = { 
-                            uid: playerId, 
+                        playerData = {
+                            uid: playerId,
                             displayName: (guestPlayer.displayName || '').replace(' (Guest)', '') || 'Guest',
                             position: safePosition
                         };
                     } else {
                         const guestId = playerId.substring(GUEST_PREFIX.length);
-                        playerData = { 
-                            uid: playerId, 
+                        playerData = {
+                            uid: playerId,
                             displayName: `Guest ${guestId.substring(0, 5)}`,
                             position: safePosition
                         };
@@ -257,8 +241,8 @@ export default function MatchFormDialog({
                 } else {
                     const member = members.find(m => m.uid === playerId);
                     if (member) {
-                        playerData = { 
-                            uid: member.uid || playerId, 
+                        playerData = {
+                            uid: member.uid || playerId,
                             displayName: member.displayName || 'Player',
                             position: safePosition
                         };
@@ -270,8 +254,7 @@ export default function MatchFormDialog({
                         };
                     }
                 }
-                
-                // Final check - don't convert undefined to null
+
                 return {
                     uid: playerData.uid || `player_${Date.now()}`,
                     displayName: playerData.displayName || 'Player',
@@ -279,13 +262,13 @@ export default function MatchFormDialog({
                 };
             };
 
-            const team1Players = data.gameType === '1v1' 
-                ? [getPlayerDetails(data.team1Player1)] 
+            const team1Players = data.gameType === '1v1'
+                ? [getPlayerDetails(data.team1Player1)]
                 : [
                     getPlayerDetails(data.team1Player1, 'defense'),
                     getPlayerDetails(data.team1Player2, 'attack')
                   ];
-            
+
             const team2Players = data.gameType === '1v1'
                 ? [getPlayerDetails(data.team2Player1)]
                 : [
@@ -295,7 +278,7 @@ export default function MatchFormDialog({
 
             const filteredTeam1Players = team1Players.filter(Boolean) as PlayerWithPosition[];
             const filteredTeam2Players = team2Players.filter(Boolean) as PlayerWithPosition[];
-            
+
             if (filteredTeam1Players.length === 0 || filteredTeam2Players.length === 0) {
                 toast.error("Error", { description: "Invalid player selections. Please try again." });
                 setIsSubmittingMatch(false);
@@ -307,16 +290,32 @@ export default function MatchFormDialog({
             else if (data.team2Score > data.team1Score) winner = 'team2';
             else winner = 'draw';
 
-            // Function to clean any object of undefined values
+            let playedAtTimestamp: Timestamp;
+            try {
+                if (!data.playedAt || data.playedAt.trim() === '') {
+                    playedAtTimestamp = Timestamp.now();
+                } else {
+                    const playedAtDate = new Date(data.playedAt);
+                    if (isNaN(playedAtDate.getTime())) {
+                        throw new Error("Invalid date format");
+                    }
+                    playedAtDate.setHours(12, 0, 0, 0);
+                    playedAtTimestamp = Timestamp.fromDate(playedAtDate);
+                }
+            } catch (error) {
+                console.warn("Invalid date conversion, using current time:", error);
+                playedAtTimestamp = Timestamp.now();
+            }
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const cleanObject = (obj: any): any => {
                 if (obj === null || obj === undefined) return null;
                 if (typeof obj !== 'object') return obj;
-                
+
                 if (Array.isArray(obj)) {
                     return obj.map(item => cleanObject(item));
                 }
-                
+
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const cleaned: any = {};
                 for (const key in obj) {
@@ -331,7 +330,7 @@ export default function MatchFormDialog({
 
             const matchDocData = {
                 groupId: groupId || '',
-                playedAt: data.playedAt ? Timestamp.fromDate(new Date(data.playedAt)) : Timestamp.now(),
+                playedAt: playedAtTimestamp,
                 gameType: data.gameType || '1v1',
                 team1: {
                     color: (group?.teamColors?.teamOne) || '#FF0000',
@@ -354,11 +353,7 @@ export default function MatchFormDialog({
                 winner: winner || 'draw',
             };
 
-            // Clean the object to remove any undefined values
             const cleanedMatchData = cleanObject(matchDocData);
-            
-            // Log the final data for debugging
-            console.log("Final match data:", JSON.stringify(cleanedMatchData, null, 2));
 
             if (editingMatch) {
                 const matchRef = doc(db, "matches", editingMatch.id);
@@ -388,23 +383,21 @@ export default function MatchFormDialog({
 
     const getPlayerDisplayName = (playerId: string): string => {
         if (!playerId) return 'Select player';
-        
+
         if (playerId.includes('[object Object]')) {
-            console.warn(`Invalid player ID detected: ${playerId}`);
             return 'Invalid player';
         }
-        
         const player = normalizedPlayers.find(p => p.uid === playerId);
         if (player) return player.displayName;
-        
+
         if (playerId.startsWith(GUEST_PREFIX)) {
             const guestId = playerId.substring(GUEST_PREFIX.length);
             return `Guest ${guestId.substring(0, 5)}`;
         }
-        
+
         const member = members.find(m => m.uid === playerId);
         if (member) return member.displayName;
-        
+
         return 'Unknown Player';
     };
 
@@ -447,9 +440,9 @@ export default function MatchFormDialog({
                         {watchedGameType === '1v1' ? (
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                    <div 
-                                        className="w-4 h-4 rounded-full border border-black" 
-                                        style={{ backgroundColor: group?.teamColors?.teamOne }} 
+                                    <div
+                                        className="w-4 h-4 rounded-full border border-black"
+                                        style={{ backgroundColor: group?.teamColors?.teamOne }}
                                     />
                                     <Label htmlFor="t1p1">Team 1 Player</Label>
                                 </div>
@@ -468,8 +461,8 @@ export default function MatchFormDialog({
                                                 {normalizedPlayers.map((player, index) => {
                                                     const uniqueKey = `t1p1-${player.uid.replace(/\W/g, '')}-${index}`;
                                                     return (
-                                                        <SelectItem 
-                                                            key={uniqueKey} 
+                                                        <SelectItem
+                                                            key={uniqueKey}
                                                             value={player.uid}
                                                         >
                                                             {player.displayName}
@@ -486,9 +479,9 @@ export default function MatchFormDialog({
                             <>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
-                                        <div 
-                                            className="w-4 h-4 rounded-full border border-black" 
-                                            style={{ backgroundColor: group?.teamColors?.teamOne }} 
+                                        <div
+                                            className="w-4 h-4 rounded-full border border-black"
+                                            style={{ backgroundColor: group?.teamColors?.teamOne }}
                                         />
                                         <Label htmlFor="t1p1">Team 1 Defense</Label>
                                     </div>
@@ -507,8 +500,8 @@ export default function MatchFormDialog({
                                                     {normalizedPlayers.map((player, index) => {
                                                         const uniqueKey = `t1p1-${player.uid.replace(/\W/g, '')}-${index}`;
                                                         return (
-                                                            <SelectItem 
-                                                                key={uniqueKey} 
+                                                            <SelectItem
+                                                                key={uniqueKey}
                                                                 value={player.uid}
                                                             >
                                                                 {player.displayName}
@@ -523,9 +516,9 @@ export default function MatchFormDialog({
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
-                                        <div 
-                                            className="w-4 h-4 rounded-full border border-black" 
-                                            style={{ backgroundColor: group?.teamColors?.teamOne }} 
+                                        <div
+                                            className="w-4 h-4 rounded-full border border-black"
+                                            style={{ backgroundColor: group?.teamColors?.teamOne }}
                                         />
                                         <Label htmlFor="t1p2">Team 1 Attack</Label>
                                     </div>
@@ -544,8 +537,8 @@ export default function MatchFormDialog({
                                                     {normalizedPlayers.map((player, index) => {
                                                         const uniqueKey = `t1p2-${player.uid.replace(/\W/g, '')}-${index}`;
                                                         return (
-                                                            <SelectItem 
-                                                                key={uniqueKey} 
+                                                            <SelectItem
+                                                                key={uniqueKey}
                                                                 value={player.uid}
                                                             >
                                                                 {player.displayName}
@@ -564,9 +557,9 @@ export default function MatchFormDialog({
                         {watchedGameType === '1v1' ? (
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                    <div 
-                                        className="w-4 h-4 rounded-full border border-black" 
-                                        style={{ backgroundColor: group?.teamColors?.teamTwo }} 
+                                    <div
+                                        className="w-4 h-4 rounded-full border border-black"
+                                        style={{ backgroundColor: group?.teamColors?.teamTwo }}
                                     />
                                     <Label htmlFor="t2p1">Team 2 Player</Label>
                                 </div>
@@ -585,8 +578,8 @@ export default function MatchFormDialog({
                                                 {normalizedPlayers.map((player, index) => {
                                                     const uniqueKey = `t2p1-${player.uid.replace(/\W/g, '')}-${index}`;
                                                     return (
-                                                        <SelectItem 
-                                                            key={uniqueKey} 
+                                                        <SelectItem
+                                                            key={uniqueKey}
                                                             value={player.uid}
                                                         >
                                                             {player.displayName}
@@ -603,9 +596,9 @@ export default function MatchFormDialog({
                             <>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
-                                        <div 
-                                            className="w-4 h-4 rounded-full border border-black" 
-                                            style={{ backgroundColor: group?.teamColors?.teamTwo }} 
+                                        <div
+                                            className="w-4 h-4 rounded-full border border-black"
+                                            style={{ backgroundColor: group?.teamColors?.teamTwo }}
                                         />
                                         <Label htmlFor="t2p1">Team 2 Defense</Label>
                                     </div>
@@ -624,8 +617,8 @@ export default function MatchFormDialog({
                                                     {normalizedPlayers.map((player, index) => {
                                                         const uniqueKey = `t2p1-${player.uid.replace(/\W/g, '')}-${index}`;
                                                         return (
-                                                            <SelectItem 
-                                                                key={uniqueKey} 
+                                                            <SelectItem
+                                                                key={uniqueKey}
                                                                 value={player.uid}
                                                             >
                                                                 {player.displayName}
@@ -636,13 +629,13 @@ export default function MatchFormDialog({
                                             </Select>
                                         )}
                                     />
-                                    {errors.team2Player1 && <p className="text-red-500 text-sm">{errors.team2Player1.message}</p>}
+                                    {errors.team2Player1 && <p className="text-red-50 text-sm">{errors.team2Player1.message}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
-                                        <div 
-                                            className="w-4 h-4 rounded-full border border-black" 
-                                            style={{ backgroundColor: group?.teamColors?.teamTwo }} 
+                                        <div
+                                            className="w-4 h-4 rounded-full border border-black"
+                                            style={{ backgroundColor: group?.teamColors?.teamTwo }}
                                         />
                                         <Label htmlFor="t2p2">Team 2 Attack</Label>
                                     </div>
@@ -661,8 +654,8 @@ export default function MatchFormDialog({
                                                     {normalizedPlayers.map((player, index) => {
                                                         const uniqueKey = `t2p2-${player.uid.replace(/\W/g, '')}-${index}`;
                                                         return (
-                                                            <SelectItem 
-                                                                key={uniqueKey} 
+                                                            <SelectItem
+                                                                key={uniqueKey}
                                                                 value={player.uid}
                                                             >
                                                                 {player.displayName}
@@ -680,9 +673,9 @@ export default function MatchFormDialog({
 
                         <div className="space-y-2">
                             <div className="flex items-center gap-2">
-                                <div 
-                                    className="w-4 h-4 rounded-full border border-black" 
-                                    style={{ backgroundColor: group?.teamColors?.teamOne }} 
+                                <div
+                                    className="w-4 h-4 rounded-full border border-black"
+                                    style={{ backgroundColor: group?.teamColors?.teamOne }}
                                 />
                                 <Label htmlFor="t1score">Team 1 Score</Label>
                             </div>
@@ -697,9 +690,9 @@ export default function MatchFormDialog({
                         </div>
                         <div className="space-y-2">
                             <div className="flex items-center gap-2">
-                                <div 
-                                    className="w-4 h-4 rounded-full border border-black" 
-                                    style={{ backgroundColor: group?.teamColors?.teamTwo }} 
+                                <div
+                                    className="w-4 h-4 rounded-full border border-black"
+                                    style={{ backgroundColor: group?.teamColors?.teamTwo }}
                                 />
                                 <Label htmlFor="t2score">Team 2 Score</Label>
                             </div>
@@ -715,12 +708,12 @@ export default function MatchFormDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="playedAt">
-                                Played At
+                                Played On
                             </Label>
                             <Input
                                 id="playedAt"
-                                type="datetime-local"
-                                {...register("playedAt", { required: "Date and time are required" })}
+                                type="date"
+                                {...register("playedAt", { required: "Date is required" })}
                                 disabled={isSubmittingMatch}
                             />
                             {errors.playedAt && <p className="text-red-500 text-sm">{errors.playedAt.message}</p>}
