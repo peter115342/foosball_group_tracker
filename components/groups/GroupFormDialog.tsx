@@ -145,6 +145,13 @@ export default function GroupFormDialog({
   const handleAddGuest = () => {
     const trimmedName = createGuestNameInput.trim();
     if (trimmedName) {
+      if (createGuestMembers.length >= 50) {
+        toast.error("Guest limit reached", { 
+          description: "A group can have a maximum of 50 guest players." 
+        });
+        return;
+      }
+      
       const existingGuest = createGuestMembers.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
 
       if (!existingGuest) {
@@ -164,6 +171,13 @@ export default function GroupFormDialog({
   const onSubmit: SubmitHandler<GroupFormInputs> = async (data) => {
     if (!user) {
       toast.error("User not logged in.");
+      return;
+    }
+    
+    if (createGuestMembers.length > 50) {
+      toast.error("Guest limit exceeded", { 
+        description: "A group can have a maximum of 50 guest players." 
+      });
       return;
     }
     
@@ -345,8 +359,11 @@ export default function GroupFormDialog({
             </div>
 
             <div className="grid grid-cols-4 items-start gap-4 mt-2">
-              <Label className="text-right pt-2">Guest Players</Label>
-              <div className="col-span-3 space-y-3">
+              <div className="flex justify-between items-center col-span-4">
+                <Label className="text-right pt-2">Guest Players</Label>
+                <span className="text-xs text-muted-foreground">{createGuestMembers.length}/50</span>
+              </div>
+              <div className="col-span-4 space-y-3">
                 <div className="flex gap-2">
                   <Input
                     placeholder="Add guest name"

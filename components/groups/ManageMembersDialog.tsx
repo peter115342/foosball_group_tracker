@@ -83,6 +83,13 @@ export default function ManageMembersDialog({
   const handleAddGuest = () => {
     const trimmedName = guestNameInput.trim();
     if (trimmedName) {
+      if (guests.length >= 50) {
+        toast.error("Guest limit reached", { 
+          description: "A group can have a maximum of 50 guest players." 
+        });
+        return;
+      }
+
       const existingGuest = guests.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
 
       if (!existingGuest) {
@@ -109,6 +116,13 @@ export default function ManageMembersDialog({
 
   const handleSaveChanges = async () => {
     if (!isEditor || !group) return;
+    
+    if (guests.length > 50) {
+      toast.error("Guest limit exceeded", { 
+        description: "A group can have a maximum of 50 guest players." 
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     try {
@@ -137,11 +151,9 @@ export default function ManageMembersDialog({
       await updateDoc(groupRef, {
         inviteCode: newCode
       });
-      // Update local state to reflect the new code
       group.inviteCode = newCode;
       toast.success('Invite code regenerated successfully');
       
-      // Force refresh the page
       window.location.reload();
       
       return;
@@ -167,7 +179,6 @@ export default function ManageMembersDialog({
         </DialogHeader>
         
         <div className="py-4 space-y-6">
-          {/* Invite Code Display */}
           {group && isEditor && (
             <InviteCodeDisplay 
               groupName={group.name}
@@ -177,7 +188,6 @@ export default function ManageMembersDialog({
             />
           )}
           
-          {/* Members List */}
           <div>
             <h3 className="font-medium mb-2">Members</h3>
             <div className="space-y-2 max-h-48 overflow-y-auto">
@@ -224,11 +234,12 @@ export default function ManageMembersDialog({
             </div>
           </div>
 
-          {/* Guests Section */}
           <div>
-            <h3 className="font-medium mb-2">Guest Players</h3>
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-medium">Guest Players</h3>
+              <span className="text-xs text-muted-foreground">{guests.length}/50</span>
+            </div>
             
-            {/* Add Guest Input (for admin and editor) */}
             {isEditor && (
               <div className="flex gap-2 mb-3">
                 <Input
@@ -253,7 +264,6 @@ export default function ManageMembersDialog({
               </div>
             )}
             
-            {/* Guests List */}
             {guests.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {guests.map(guest => (

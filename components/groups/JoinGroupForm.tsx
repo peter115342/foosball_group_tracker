@@ -115,4 +115,3 @@ export default function JoinGroupForm({ isOpen, onOpenChange, user }: JoinGroupF
 }
 
 
-//TODO: fix rules for joining groups

@@ -163,6 +163,7 @@ export default function DashboardPage() {
         return () => clearInterval(interval);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading, rateLimit?.cooldownRemaining]);
 
   const handleOpenDeleteDialog = (group: GroupDoc) => {
