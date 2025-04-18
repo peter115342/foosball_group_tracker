@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useForm, SubmitHandler } from "react-hook-form";
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc } from "firebase/firestore";
 import { db } from '@/lib/firebase/config';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
@@ -123,6 +123,12 @@ export default function GroupFormDialog({
             }
             
             setRateLimit({ remaining: groupsRemaining, nextAvailable });
+          } else {
+            await setDoc(ratelimitRef, {
+              groupCount: 0,
+              lastGroupCreation: serverTimestamp()
+            });
+            setRateLimit({ remaining: 20, nextAvailable: null });
           }
         } catch (error) {
           console.error("Error fetching rate limits:", error);
@@ -186,13 +192,12 @@ export default function GroupFormDialog({
       const groupsCollectionRef = collection(db, "groups");
 
       const fullAdminName = user.displayName || `Admin_${user.uid.substring(0, 5)}`;
-      const memberFirstName = user.displayName?.split(' ')[0] || `Admin_${user.uid.substring(0, 5)}`;
       
       const inviteCode = generateInviteCode();
       
       const membersMap = {
         [user.uid]: {
-          name: memberFirstName,
+          name: fullAdminName,
           role: 'admin'
         }
       };
@@ -260,15 +265,15 @@ export default function GroupFormDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {rateLimit && rateLimit.nextAvailable && (
+        {rateLimit && (
           <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 p-3 rounded-md text-sm">
-            Cooldown active. You can create your next group in {Math.floor((rateLimit.nextAvailable.getTime() - Date.now()) / 60000)}m {Math.floor(((rateLimit.nextAvailable.getTime() - Date.now()) % 60000) / 1000)}s.
-          </div>
-        )}
-
-        {rateLimit && rateLimit.remaining <= 3 && (
-          <div className="bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300 p-3 rounded-md text-sm">
-            You have {rateLimit.remaining} group{rateLimit.remaining !== 1 ? 's' : ''} remaining out of 20 maximum.
+            <span className="font-semibold">{rateLimit.remaining}</span> groups remaining out of 20 maximum.
+            
+            {rateLimit.nextAvailable && (
+              <div className="mt-2">
+                Cooldown active. Button will be disabled until the cooldown ends.
+              </div>
+            )}
           </div>
         )}
 

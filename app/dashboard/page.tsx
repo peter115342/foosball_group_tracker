@@ -222,16 +222,6 @@ export default function DashboardPage() {
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Your Groups</h1>
         <div className="flex gap-2 items-center">
-          {rateLimit && (
-            <div className="text-sm text-muted-foreground mr-4">
-              <span className="font-semibold">{20 - rateLimit.groupCount}</span> groups remaining for this user
-              {rateLimit.cooldownRemaining > 0 && (
-                <span className="ml-2">
-                  • Next in {Math.floor(rateLimit.cooldownRemaining / 60)}m {rateLimit.cooldownRemaining % 60}s
-                </span>
-              )}
-            </div>
-          )}
           <Button 
             variant="outline" 
             onClick={() => setIsJoinGroupOpen(true)}
