@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/authContext';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,15 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogClose,
-} from "@/components/ui/dialog";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -33,24 +23,22 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useForm, SubmitHandler } from "react-hook-form";
 import { db } from '@/lib/firebase/config';
-import { collection, addDoc, serverTimestamp, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc, updateDoc, deleteField } from "firebase/firestore";
-import { X, Trash2, UserPlus, Users } from 'lucide-react';
+import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc, increment, getDoc, updateDoc } from "firebase/firestore";
+import {Trash2,Users, Copy, Edit } from 'lucide-react';
 import { toast } from "sonner";
-
-type GroupFormInputs = {
-  groupName: string;
-  teamOneColor: string;
-  teamTwoColor: string;
-};
+import GroupFormDialog from '@/components/groups/GroupFormDialog';
+import JoinGroupForm from '@/components/groups/JoinGroupForm';
+import ManageMembersDialog from '@/components/groups/ManageMembersDialog';
 
 interface MemberData {
     name: string;
-    isMember: boolean;
-    isAdmin?: boolean;
+    role: 'editor' | 'viewer';
+}
+
+interface GuestData {
+    id: string;
+    name: string;
 }
 
 interface GroupDoc extends DocumentData {
@@ -58,24 +46,15 @@ interface GroupDoc extends DocumentData {
     name: string;
     adminUid: string;
     adminName?: string;
+    inviteCode?: string;
     members: { [uid: string]: MemberData };
-    guests?: string[];
+    guests?: GuestData[] | string[];
     teamColors: {
         teamOne: string;
         teamTwo: string;
     };
+    groupColor?: string;
 }
-
-const predefinedColors = [
-  { name: 'Red', hex: '#FF0000' },
-  { name: 'Blue', hex: '#0000FF' },
-  { name: 'Green', hex: '#008000' },
-  { name: 'Yellow', hex: '#FFFF00' },
-  { name: 'Orange', hex: '#FFA500' },
-  { name: 'Purple', hex: '#800080' },
-  { name: 'Black', hex: '#000000' },
-  { name: 'White', hex: '#FFFFFF' },
-];
 
 const formatAdminDisplayName = (fullName: string | null | undefined): string => {
   if (!fullName) return 'N/A';
@@ -87,15 +66,12 @@ const formatAdminDisplayName = (fullName: string | null | undefined): string => 
 };
 
 export default function DashboardPage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading} = useAuth();
   const router = useRouter();
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
-  const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
+  const [isJoinGroupOpen, setIsJoinGroupOpen] = useState(false);
   const [groups, setGroups] = useState<GroupDoc[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(true);
-
-  const [createGuestNameInput, setCreateGuestNameInput] = useState('');
-  const [createGuestMembers, setCreateGuestMembers] = useState<string[]>([]);
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [groupToDelete, setGroupToDelete] = useState<GroupDoc | null>(null);
@@ -103,22 +79,12 @@ export default function DashboardPage() {
 
   const [isManageMembersDialogOpen, setIsManageMembersDialogOpen] = useState(false);
   const [groupToManage, setGroupToManage] = useState<GroupDoc | null>(null);
-  const [manageGuestNameInput, setManageGuestNameInput] = useState('');
-  const [currentGuests, setCurrentGuests] = useState<string[]>([]);
-  const [membersToRemove, setMembersToRemove] = useState<string[]>([]); 
-  const [isManagingMembers, setIsManagingMembers] = useState(false);
-
-
-  const { register: registerCreate, handleSubmit: handleCreateSubmit, reset: resetCreate, formState: { errors: createErrors }, setValue: setCreateValue, watch: watchCreate } = useForm<GroupFormInputs>({
-      defaultValues: {
-          groupName: "",
-          teamOneColor: "#FF0000",
-          teamTwoColor: "#0000FF",
-      }
-  });
-
-  const watchedTeamOneColor = watchCreate('teamOneColor');
-  const watchedTeamTwoColor = watchCreate('teamTwoColor');
+  
+  const [rateLimit, setRateLimit] = useState<{
+    groupCount: number;
+    lastGroupCreation: Date | null;
+    cooldownRemaining: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -130,7 +96,7 @@ export default function DashboardPage() {
     if (user && !loading) {
       setGroupsLoading(true);
       const groupsCollectionRef = collection(db, "groups");
-      const q = query(groupsCollectionRef, where(`members.${user.uid}.isMember`, "==", true));
+      const q = query(groupsCollectionRef, where(`members.${user.uid}.role`, "in", ["admin","editor", "viewer"]));
 
       const unsubscribe = onSnapshot(q, (querySnapshot: QuerySnapshot<DocumentData>) => {
         const userGroups: GroupDoc[] = [];
@@ -146,89 +112,59 @@ export default function DashboardPage() {
       });
 
       return () => unsubscribe();
-    } else if (!user) {
+    } else if (!user && !loading) {
       setGroups([]);
       setGroupsLoading(false);
     }
   }, [user, loading]);
-
+  
   useEffect(() => {
-     if (!isCreateGroupOpen) {
-         setCreateGuestMembers([]);
-         setCreateGuestNameInput('');
-         resetCreate();
-     }
-   }, [isCreateGroupOpen, resetCreate]);
-
-   useEffect(() => {
-       if (isManageMembersDialogOpen && groupToManage) {
-           setCurrentGuests(groupToManage.guests || []);
-           setMembersToRemove([]);
-           setManageGuestNameInput('');
-       } else {
-           setGroupToManage(null);
-           setCurrentGuests([]);
-           setMembersToRemove([]);
-           setManageGuestNameInput('');
-       }
-   }, [isManageMembersDialogOpen, groupToManage]);
-
-
-  const handleAddCreateGuest = () => {
-    const trimmedName = createGuestNameInput.trim();
-    if (trimmedName && !createGuestMembers.includes(trimmedName)) {
-      setCreateGuestMembers([...createGuestMembers, trimmedName]);
-      setCreateGuestNameInput('');
-    } else if (createGuestMembers.includes(trimmedName)) {
-        toast.warning("Guest already added.");
-    }
-  };
-
-  const handleRemoveCreateGuest = (guestToRemove: string) => {
-    setCreateGuestMembers(createGuestMembers.filter(name => name !== guestToRemove));
-  };
-
-  const handleCreateGroup: SubmitHandler<GroupFormInputs> = async (data) => {
-    if (!user) {
-      toast.error("User not logged in.");
-      return;
-    }
-    setIsSubmittingGroup(true);
-    try {
-      const groupsCollectionRef = collection(db, "groups");
-
-      const fullAdminName = user.displayName || `Admin_${user.uid.substring(0, 5)}`;
-      const memberFirstName = user.displayName?.split(' ')[0] || `Admin_${user.uid.substring(0, 5)}`;
-
-      const membersMap: { [key: string]: MemberData } = {};
-      membersMap[user.uid] = {
-          name: memberFirstName,
-          isMember: true,
-          isAdmin: true
+    if (user && !loading) {
+      const fetchRateLimits = async () => {
+        try {
+          const ratelimitRef = doc(db, 'ratelimits', user.uid);
+          const ratelimitDoc = await getDoc(ratelimitRef);
+          
+          if (ratelimitDoc.exists()) {
+            const data = ratelimitDoc.data();
+            const lastCreation = data.lastGroupCreation ? 
+              data.lastGroupCreation.toDate() : null;
+            
+            let cooldownRemaining = 0;
+            if (lastCreation) {
+              const cooldownEnd = new Date(lastCreation.getTime() + (60 * 1000)); // 1 min
+              cooldownRemaining = Math.max(0, 
+                Math.floor((cooldownEnd.getTime() - Date.now()) / 1000));
+            }
+            
+            setRateLimit({
+              groupCount: data.groupCount || 0,
+              lastGroupCreation: lastCreation,
+              cooldownRemaining
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching rate limits:", error);
+        }
       };
-
-      const newGroupData = {
-        name: data.groupName,
-        adminUid: user.uid,
-        adminName: fullAdminName,
-        createdAt: serverTimestamp(),
-        members: membersMap,
-        guests: createGuestMembers,
-        teamColors: {
-          teamOne: data.teamOneColor,
-          teamTwo: data.teamTwoColor,
-        },
-      };
-      await addDoc(groupsCollectionRef, newGroupData);
-      toast.success("Group created successfully!");
-      setIsCreateGroupOpen(false);
-    } catch (error) {
-      console.error("Error creating group:", error);
-      toast.error("Error creating group", { description: (error as Error).message });
-    } finally {
-      setIsSubmittingGroup(false);
+      
+      fetchRateLimits();
+      
+      // Set up an interval to update the cooldown timer
+      if (rateLimit && rateLimit.cooldownRemaining > 0) {
+        const interval = setInterval(() => {
+          setRateLimit(prev => {
+            if (!prev) return prev;
+            const newRemaining = Math.max(0, prev.cooldownRemaining - 1);
+            return { ...prev, cooldownRemaining: newRemaining };
+          });
+        }, 1000);
+        
+        return () => clearInterval(interval);
+      }
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loading, rateLimit?.cooldownRemaining]);
 
   const handleOpenDeleteDialog = (group: GroupDoc) => {
       setGroupToDelete(group);
@@ -244,6 +180,13 @@ export default function DashboardPage() {
       try {
           const groupRef = doc(db, "groups", groupToDelete.id);
           await deleteDoc(groupRef);
+          
+          // Decrement group count in rate limits
+          const ratelimitRef = doc(db, 'ratelimits', user.uid);
+          await updateDoc(ratelimitRef, {
+            groupCount: increment(-1)
+          });
+          
           toast.success(`Group "${groupToDelete.name}" deleted successfully.`);
           setGroupToDelete(null);
           setIsDeleteDialogOpen(false);
@@ -255,64 +198,16 @@ export default function DashboardPage() {
       }
   };
 
-   const handleOpenManageMembersDialog = (group: GroupDoc) => {
-       setGroupToManage(group);
-       setIsManageMembersDialogOpen(true);
-   };
+  const handleOpenManageMembersDialog = (group: GroupDoc) => {
+      setGroupToManage(group);
+      setIsManageMembersDialogOpen(true);
+  };
 
-   const handleToggleMemberRemoval = (uid: string) => {
-       setMembersToRemove(prev =>
-           prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]
-       );
-   };
-
-   const handleAddManageGuest = () => {
-       const trimmedName = manageGuestNameInput.trim();
-       if (trimmedName && !currentGuests.includes(trimmedName)) {
-           setCurrentGuests([...currentGuests, trimmedName]);
-           setManageGuestNameInput('');
-       } else if (currentGuests.includes(trimmedName)) {
-           toast.warning("Guest already added.");
-       }
-   };
-
-   const handleRemoveManageGuest = (guestToRemove: string) => {
-       setCurrentGuests(currentGuests.filter(name => name !== guestToRemove));
-   };
-
-   const handleSaveChanges = async () => {
-       if (!groupToManage || !user || user.uid !== groupToManage.adminUid) {
-           toast.error("Unauthorized or group not selected.");
-           return;
-       }
-       setIsManagingMembers(true);
-
-       try {
-           const groupRef = doc(db, "groups", groupToManage.id);
-           const updateData: { [key: string]: string[] | ReturnType<typeof deleteField> } = {
-               guests: currentGuests
-           };
-
-           membersToRemove.forEach(uid => {
-               updateData[`members.${uid}`] = deleteField();
-           });
-
-           if (Object.keys(updateData).length > 1 || JSON.stringify(currentGuests) !== JSON.stringify(groupToManage.guests || [])) {
-                await updateDoc(groupRef, updateData);
-                toast.success(`Members and guests updated for "${groupToManage.name}".`);
-           } else {
-               toast.info("No changes detected.");
-           }
-
-           setIsManageMembersDialogOpen(false);
-
-       } catch (error) {
-           console.error("Error updating members/guests:", error);
-           toast.error("Error updating group", { description: (error as Error).message });
-       } finally {
-           setIsManagingMembers(false);
-       }
-   };
+  const handleCopyInviteCode = (inviteCode: string) => {
+    navigator.clipboard.writeText(inviteCode)
+      .then(() => toast.success('Invite code copied to clipboard'))
+      .catch(() => toast.error('Failed to copy invite code'));
+  };
 
   if (loading || !user) {
     return (
@@ -327,9 +222,21 @@ export default function DashboardPage() {
     <div className="container mx-auto py-8 px-4 md:px-8">
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Your Groups</h1>
-        <div className="flex gap-4">
-          <Button onClick={() => setIsCreateGroupOpen(true)}>Create Group</Button>
-          <Button variant="outline" onClick={logout}>Logout</Button>
+        <div className="flex gap-2 items-center">
+          <Button 
+            variant="outline" 
+            onClick={() => setIsJoinGroupOpen(true)}
+          >
+            Join Group
+          </Button>
+          <Button 
+            onClick={() => setIsCreateGroupOpen(true)}
+            disabled={rateLimit ? rateLimit.cooldownRemaining > 0 : false}
+          >
+            {rateLimit && rateLimit.cooldownRemaining > 0 
+              ? `Create Group (${Math.floor(rateLimit.cooldownRemaining / 60)}:${(rateLimit.cooldownRemaining % 60).toString().padStart(2, '0')})` 
+              : 'Create Group'}
+          </Button>
         </div>
       </header>
 
@@ -342,45 +249,77 @@ export default function DashboardPage() {
       ) : groups.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {groups.map((group) => (
-            <div key={group.id} className="border rounded-lg p-4 flex flex-col">
-              <div className="flex justify-between items-start mb-2">
+            <div key={group.id} className="border rounded-lg p-4 flex flex-col relative overflow-hidden">
+              <div
+                className="absolute -top-4 -left-4 w-16 h-16 rounded-full flex items-center justify-center text-2xl opacity-80"
+                style={{ backgroundColor: group.groupColor || '#cccccc' }}
+                aria-hidden="true"
+              >
+                <span className="mt-4 ml-4">⚽</span>
+              </div>
+
+              <div className="flex justify-between items-start mb-2 pl-10">
                 <h2 className="text-xl font-semibold">{group.name}</h2>
-                {user.uid === group.adminUid && (
+                {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">...</Button>
+                      <Button variant="ghost" size="sm" className="relative z-10">
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Group Options</DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleOpenManageMembersDialog(group)}>
                         <Users className="mr-2 h-4 w-4" />
-                        <span>Manage Members</span>
+                        <span>{user.uid === group.adminUid ? "Manage Group" : "View Details"}</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleOpenDeleteDialog(group)}
-                        className="text-red-600 focus:text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Delete Group</span>
-                      </DropdownMenuItem>
+                      {user.uid === group.adminUid && (
+                        <DropdownMenuItem
+                          onClick={() => handleOpenDeleteDialog(group)}
+                          className="text-red-600 focus:text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          <span>Delete Group</span>
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
               </div>
-              
-              <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
-                <span className="inline-block h-3 w-3 rounded-full border" style={{ backgroundColor: group.teamColors.teamOne }}></span>
+
+              <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground pl-10">
+                <span className="inline-block h-5 w-5 rounded-full border" style={{ backgroundColor: group.teamColors.teamOne }}></span>
                 <span>vs</span>
-                <span className="inline-block h-3 w-3 rounded-full border" style={{ backgroundColor: group.teamColors.teamTwo }}></span>
+                <span className="inline-block h-5 w-5 rounded-full border" style={{ backgroundColor: group.teamColors.teamTwo }}></span>
               </div>
+
+              {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && group.inviteCode && (
+                <div className="mt-2 mb-2 pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-semibold">Invite Code:</span> 
+                      <span className="font-mono ml-1">{group.inviteCode}</span>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 px-2"
+                      onClick={() => handleCopyInviteCode(group.inviteCode || '')}
+                    >
+                      <Copy className="h-3 w-3 mr-1" />
+                      <span className="text-xs">Copy</span>
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-auto pt-3 border-t flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
                   Admin: {formatAdminDisplayName(group.adminName)}
                 </div>
-                <Button 
-                  variant="default" 
+                <Button
+                  variant="default"
                   size="sm"
                   onClick={() => router.push(`/group/${group.id}`)}
                 >
@@ -393,157 +332,57 @@ export default function DashboardPage() {
       ) : (
         <div className="text-center py-12">
           <p className="text-muted-foreground mb-4">You have not created or joined any groups yet.</p>
-          <Button onClick={() => setIsCreateGroupOpen(true)}>Create Your First Group</Button>
+          <div className="flex justify-center gap-3">
+            <Button variant="outline" onClick={() => setIsJoinGroupOpen(true)}>Join a Group</Button>
+            <Button 
+              onClick={() => setIsCreateGroupOpen(true)}
+              disabled={rateLimit ? rateLimit.cooldownRemaining > 0 : false}
+            >
+              {rateLimit && rateLimit.cooldownRemaining > 0 
+                ? `Create Group (${Math.floor(rateLimit.cooldownRemaining / 60)}:${(rateLimit.cooldownRemaining % 60).toString().padStart(2, '0')})` 
+                : 'Create Your First Group'}
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Create Group Dialog */}
-      <Dialog open={isCreateGroupOpen} onOpenChange={setIsCreateGroupOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Create New Group</DialogTitle>
-            <DialogDescription>
-              Create a new foosball group to track matches with friends or colleagues.
-            </DialogDescription>
-          </DialogHeader>
+      {user && (
+        <>
+          <GroupFormDialog
+            isOpen={isCreateGroupOpen}
+            onOpenChange={setIsCreateGroupOpen}
+            user={user}
+          />
+          <JoinGroupForm
+            isOpen={isJoinGroupOpen}
+            onOpenChange={setIsJoinGroupOpen}
+            user={user}
+          />
+        </>
+      )}
 
-          <form onSubmit={handleCreateSubmit(handleCreateGroup)}>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="groupName" className="text-right">Group Name</Label>
-                <Input 
-                  id="groupName" 
-                  className="col-span-3"
-                  {...registerCreate("groupName", { required: "Group name is required" })}
-                  disabled={isSubmittingGroup}
-                />
-                {createErrors.groupName && (
-                  <p className="col-span-4 text-right text-sm text-red-500">{createErrors.groupName.message}</p>
-                )}
-              </div>
+      {groupToManage && (
+        <ManageMembersDialog 
+          isOpen={isManageMembersDialogOpen}
+          onOpenChange={setIsManageMembersDialogOpen}
+          group={groupToManage}
+          currentUser={user}
+        />
+      )}
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="teamOneColor" className="text-right">Team 1 Color</Label>
-                <div className="col-span-3 flex gap-2">
-                  <Input 
-                    id="teamOneColor" 
-                    type="color"
-                    className="w-12 h-10 p-1 cursor-pointer"
-                    {...registerCreate("teamOneColor")}
-                    disabled={isSubmittingGroup}
-                  />
-                  <div className="flex flex-wrap gap-1 flex-1">
-                    {predefinedColors.map(color => (
-                      <button
-                        key={color.name}
-                        type="button"
-                        title={color.name}
-                        className={`w-6 h-6 rounded-full border ${watchedTeamOneColor === color.hex ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
-                        style={{ backgroundColor: color.hex }}
-                        onClick={() => setCreateValue("teamOneColor", color.hex)}
-                        disabled={isSubmittingGroup}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="teamTwoColor" className="text-right">Team 2 Color</Label>
-                <div className="col-span-3 flex gap-2">
-                  <Input 
-                    id="teamTwoColor" 
-                    type="color"
-                    className="w-12 h-10 p-1 cursor-pointer"
-                    {...registerCreate("teamTwoColor")}
-                    disabled={isSubmittingGroup}
-                  />
-                  <div className="flex flex-wrap gap-1 flex-1">
-                    {predefinedColors.map(color => (
-                      <button
-                        key={color.name}
-                        type="button"
-                        title={color.name}
-                        className={`w-6 h-6 rounded-full border ${watchedTeamTwoColor === color.hex ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
-                        style={{ backgroundColor: color.hex }}
-                        onClick={() => setCreateValue("teamTwoColor", color.hex)}
-                        disabled={isSubmittingGroup}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-4 items-start gap-4 mt-2">
-                <Label className="text-right pt-2">Guest Players</Label>
-                <div className="col-span-3 space-y-3">
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="Add guest name"
-                      value={createGuestNameInput}
-                      onChange={(e) => setCreateGuestNameInput(e.target.value)}
-                      disabled={isSubmittingGroup}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddCreateGuest();
-                        }
-                      }}
-                    />
-                    <Button 
-                      type="button" 
-                      onClick={handleAddCreateGuest} 
-                      disabled={!createGuestNameInput.trim() || isSubmittingGroup}
-                    >
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {createGuestMembers.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {createGuestMembers.map(guest => (
-                        <div key={guest} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm">
-                          {guest}
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm" 
-                            className="p-0 h-auto ml-1" 
-                            onClick={() => handleRemoveCreateGuest(guest)}
-                            disabled={isSubmittingGroup}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-            </div>
-            <DialogFooter>
-              <Button type="submit" disabled={isSubmittingGroup}>
-                {isSubmittingGroup ? 'Creating...' : 'Create Group'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Group Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to delete this group?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the group 
+              This action cannot be undone. This will permanently delete the group
               &quot;{groupToDelete?.name}&quot; and all associated match data.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeletingGroup}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleConfirmDelete} 
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isDeletingGroup}
             >
@@ -552,116 +391,6 @@ export default function DashboardPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Manage Members Dialog */}
-      <Dialog open={isManageMembersDialogOpen} onOpenChange={setIsManageMembersDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Manage Group Members</DialogTitle>
-            <DialogDescription>
-              Add or remove members from &quot;{groupToManage?.name}&quot;.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4 space-y-6">
-            {/* Member Management Section */}
-            {groupToManage && Object.entries(groupToManage.members).length > 0 && (
-              <div>
-                <h3 className="text-sm font-medium mb-2">Members</h3>
-                <div className="space-y-2">
-                  {Object.entries(groupToManage.members).map(([uid, memberData]) => (
-                    <div key={uid} className="flex items-center justify-between p-2 border rounded">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback>{memberData.name?.charAt(0) || '?'}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="text-sm font-medium">{memberData.name || `User ${uid.substring(0,5)}`}</p>
-                          {memberData.isAdmin && <p className="text-xs text-muted-foreground">Admin</p>}
-                        </div>
-                      </div>
-                      
-                      {/* Don't allow removing admins or yourself */}
-                      {!memberData.isAdmin && uid !== user.uid && (
-                        <Button
-                          variant={membersToRemove.includes(uid) ? "destructive" : "outline"}
-                          size="sm"
-                          onClick={() => handleToggleMemberRemoval(uid)}
-                          disabled={isManagingMembers}
-                        >
-                          {membersToRemove.includes(uid) ? 'Undo' : 'Remove'}
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Guest Management Section */}
-            <div>
-              <h3 className="text-sm font-medium mb-2">Guest Players</h3>
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add guest name"
-                    value={manageGuestNameInput}
-                    onChange={(e) => setManageGuestNameInput(e.target.value)}
-                    disabled={isManagingMembers}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddManageGuest();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleAddManageGuest}
-                    disabled={!manageGuestNameInput.trim() || isManagingMembers}
-                  >
-                    <UserPlus className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                {currentGuests.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {currentGuests.map(guest => (
-                      <div key={guest} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm">
-                        {guest}
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="p-0 h-auto ml-1"
-                          onClick={() => handleRemoveManageGuest(guest)}
-                          disabled={isManagingMembers}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No guest players added.</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" disabled={isManagingMembers}>Cancel</Button>
-            </DialogClose>
-            <Button 
-              onClick={handleSaveChanges} 
-              disabled={isManagingMembers}
-            >
-              {isManagingMembers ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

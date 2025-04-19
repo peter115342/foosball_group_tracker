@@ -1,0 +1,8 @@
+{
+  "projects": {
+    "default": "foosballgroupstracker"
+  },
+  "functions": {
+    "region": "europe-west1"
+  }
+}
