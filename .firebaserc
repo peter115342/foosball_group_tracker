@@ -2,7 +2,7 @@
   "projects": {
     "default": "foosballgroupstracker"
   },
-    "functions": {
+  "functions": {
     "region": "europe-west1"
   }
 }

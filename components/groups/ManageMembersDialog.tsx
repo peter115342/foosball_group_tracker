@@ -18,7 +18,9 @@ import { toast } from 'sonner';
 import { User } from 'firebase/auth';
 import InviteCodeDisplay from './InviteCodeDisplay';
 import { v4 as uuidv4 } from 'uuid';
-import { Trash2, UserPlus, X } from 'lucide-react';
+import { Trash2, UserPlus, X, ArrowRight } from 'lucide-react';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/lib/firebase/config';
 
 const generateInviteCode = (): string => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -59,6 +61,10 @@ export default function ManageMembersDialog({
   const [isEditor, setIsEditor] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [guestNameInput, setGuestNameInput] = useState('');
+  
+  const [selectedGuest, setSelectedGuest] = useState<string>('');
+  const [selectedMember, setSelectedMember] = useState<string>('');
+  const [isMigrating, setIsMigrating] = useState(false);
 
   useEffect(() => {
     if (isOpen && group) {
@@ -83,13 +89,6 @@ export default function ManageMembersDialog({
   const handleAddGuest = () => {
     const trimmedName = guestNameInput.trim();
     if (trimmedName) {
-      if (guests.length >= 50) {
-        toast.error("Guest limit reached", { 
-          description: "A group can have a maximum of 50 guest players." 
-        });
-        return;
-      }
-
       const existingGuest = guests.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
 
       if (!existingGuest) {
@@ -116,13 +115,6 @@ export default function ManageMembersDialog({
 
   const handleSaveChanges = async () => {
     if (!isEditor || !group) return;
-    
-    if (guests.length > 50) {
-      toast.error("Guest limit exceeded", { 
-        description: "A group can have a maximum of 50 guest players." 
-      });
-      return;
-    }
     
     setIsSubmitting(true);
     try {
@@ -164,9 +156,38 @@ export default function ManageMembersDialog({
     }
   };
 
+  const handleMigrateGuest = async () => {
+    if (!selectedGuest || !selectedMember || !isAdmin) {
+      return;
+    }
+
+    setIsMigrating(true);
+    try {
+      const migrateGuestToMember = httpsCallable(functions, 'migrate_guest_to_member_fn');
+      
+      await migrateGuestToMember({
+        groupId: group.id,
+        guestId: selectedGuest,
+        memberId: selectedMember
+      });
+
+      setGuests(guests.filter(guest => guest.id !== selectedGuest));
+      
+      setSelectedGuest('');
+      setSelectedMember('');
+      
+      toast.success('Guest successfully migrated to member');
+    } catch (error) {
+      console.error('Error migrating guest to member:', error);
+      toast.error('Failed to migrate guest');
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Manage Group</DialogTitle>
           <DialogDescription>
@@ -235,10 +256,7 @@ export default function ManageMembersDialog({
           </div>
 
           <div>
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-medium">Guest Players</h3>
-              <span className="text-xs text-muted-foreground">{guests.length}/50</span>
-            </div>
+            <h3 className="font-medium mb-2">Guest Players</h3>
             
             {isEditor && (
               <div className="flex gap-2 mb-3">
@@ -288,6 +306,79 @@ export default function ManageMembersDialog({
               <p className="text-sm text-muted-foreground">No guest players added yet.</p>
             )}
           </div>
+
+          {isAdmin && (
+            <div className="border-t pt-4 mt-4">
+              <h3 className="font-medium mb-3">Migrate Guest to Member</h3>
+              {guests.length === 0 || Object.keys(members).length <= 1 ? (
+                <p className="text-sm text-muted-foreground">
+                  {guests.length === 0 
+                    ? "Add guests first to migrate them to members." 
+                    : "You need at least two members (including admin) to migrate guests."}
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Select Guest</label>
+                    <Select
+                      value={selectedGuest}
+                      onValueChange={setSelectedGuest}
+                      disabled={isMigrating}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a guest" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {guests.map(guest => (
+                          <SelectItem key={guest.id} value={guest.id}>
+                            {guest.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="flex items-center justify-center">
+                    <ArrowRight className="text-muted-foreground" />
+                  </div>
+                  
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1 block">Target Member</label>
+                    <Select
+                      value={selectedMember}
+                      onValueChange={setSelectedMember}
+                      disabled={isMigrating}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a member" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(members)
+                          .filter(([uid]) => uid !== group.adminUid) 
+                          .map(([uid, memberData]) => (
+                            <SelectItem key={uid} value={uid}>
+                              {memberData.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <Button 
+                    onClick={handleMigrateGuest}
+                    disabled={!selectedGuest || !selectedMember || isMigrating}
+                    className="w-full"
+                  >
+                    {isMigrating ? 'Migrating...' : 'Migrate Guest Data to Member'}
+                  </Button>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    This will transfer all match history from the guest to the selected member and remove the guest.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         
         <DialogFooter>
@@ -297,7 +388,7 @@ export default function ManageMembersDialog({
           {isEditor && (
             <Button 
               onClick={handleSaveChanges}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isMigrating}
             >
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>

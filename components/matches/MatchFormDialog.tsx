@@ -78,10 +78,29 @@ type MatchFormInputs = {
 
 const GUEST_PREFIX = 'guest_';
 
-const formatTimestampForInput = (timestamp: Timestamp | undefined): string => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const formatTimestampForInput = (timestamp: any): string => {
     if (!timestamp) return '';
-    const date = timestamp.toDate();
-    return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
+    
+    try {
+        if (typeof timestamp.toDate === 'function') {
+            return timestamp.toDate().toISOString().split('T')[0];
+        } 
+        else if (typeof timestamp === 'object' && 'seconds' in timestamp) {
+            const date = new Date(timestamp.seconds * 1000);
+            return date.toISOString().split('T')[0];
+        }
+        else if (typeof timestamp === 'string') {
+            const date = new Date(timestamp);
+            if (!isNaN(date.getTime())) {
+                return date.toISOString().split('T')[0];
+            }
+        }
+        return '';
+    } catch (err) {
+        console.error("Error formatting date for input:", err, timestamp);
+        return '';
+    }
 };
 
 interface MatchFormDialogProps {
@@ -172,6 +191,48 @@ export default function MatchFormDialog({
             playedAt: formatTimestampForInput(editingMatch?.playedAt || Timestamp.now()),
         }
     });
+
+    useEffect(() => {
+        if (editingMatch) {
+            const team1DefensePlayer = editingMatch.gameType === '2v2'
+                ? findPlayerByPosition(editingMatch.team1.players, 'defense')
+                : editingMatch.team1.players[0]?.uid || '';
+
+            const team1AttackPlayer = editingMatch.gameType === '2v2'
+                ? findPlayerByPosition(editingMatch.team1.players, 'attack')
+                : '';
+
+            const team2DefensePlayer = editingMatch.gameType === '2v2'
+                ? findPlayerByPosition(editingMatch.team2.players, 'defense')
+                : editingMatch.team2.players[0]?.uid || '';
+
+            const team2AttackPlayer = editingMatch.gameType === '2v2'
+                ? findPlayerByPosition(editingMatch.team2.players, 'attack')
+                : '';
+
+            reset({
+                gameType: editingMatch.gameType || '2v2',
+                team1Player1: team1DefensePlayer,
+                team1Player2: team1AttackPlayer,
+                team2Player1: team2DefensePlayer,
+                team2Player2: team2AttackPlayer,
+                team1Score: editingMatch.team1.score || 0,
+                team2Score: editingMatch.team2.score || 0,
+                playedAt: formatTimestampForInput(editingMatch.playedAt || Timestamp.now()),
+            });
+        } else {
+            reset({
+                gameType: '2v2',
+                team1Player1: '',
+                team1Player2: '',
+                team2Player1: '',
+                team2Player2: '',
+                team1Score: 0,
+                team2Score: 0,
+                playedAt: formatTimestampForInput(Timestamp.now()),
+            });
+        }
+    }, [editingMatch, reset]);
 
     const watchedGameType = watch('gameType');
 

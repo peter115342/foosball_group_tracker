@@ -124,9 +124,10 @@ export default function GroupFormDialog({
             
             setRateLimit({ remaining: groupsRemaining, nextAvailable });
           } else {
+            // Initialize without setting a timestamp
             await setDoc(ratelimitRef, {
-              groupCount: 0,
-              lastGroupCreation: serverTimestamp()
+              groupCount: 0
+              // Don't set lastGroupCreation here
             });
             setRateLimit({ remaining: 20, nextAvailable: null });
           }
