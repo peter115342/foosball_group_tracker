@@ -17,8 +17,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch";
 import {
     Select,
     SelectContent,
@@ -465,114 +463,66 @@ export default function MatchFormDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[525px] w-[95vw] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>{editingMatch ? 'Edit Match' : 'Add New Match'}</DialogTitle>
-                    <DialogDescription>
-                        Record the details of the foosball match.
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit(onSubmitMatch)}>
-                    <div className="grid gap-4 py-4">
-                        <div className="space-y-4">
-                            <Label className="text-base font-medium">Game Type</Label>
-                            <Controller
-                                name="gameType"
-                                control={control}
-                                render={({ field }) => (
-                                    <div className="flex flex-col space-y-4">
-                                        <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent">
-                                            <div className="flex items-center space-x-3">
-                                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                                    <span className="text-lg font-medium">1v1</span>
-                                                </div>
-                                                <Label htmlFor="game-type-switch" className="text-base cursor-pointer">
-                                                    1 vs 1 Match
-                                                </Label>
-                                            </div>
-                                            <Switch
-                                                id="game-type-switch"
-                                                checked={field.value === "2v2"}
-                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                                onCheckedChange={(checked: any) => field.onChange(checked ? "2v2" : "1v1")}
-                                                disabled={isSubmittingMatch}
-                                            />
-                                        </div>
-                                        <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent">
-                                            <div className="flex items-center space-x-3">
-                                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                                    <span className="text-lg font-medium">2v2</span>
-                                                </div>
-                                                <Label htmlFor="game-type-switch" className="text-base cursor-pointer">
-                                                    2 vs 2 Match
-                                                </Label>
-                                            </div>
-                                            <div className="h-6">
-                                                {field.value === "2v2" && <span className="text-sm text-primary">Selected</span>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            />
-                        </div>
-
-                        {watchedGameType === '1v1' ? (
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <div
-                                        className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
-                                        style={{ backgroundColor: group?.teamColors?.teamOne }}
-                                    />
-                                    <Label htmlFor="t1p1">Team 1 Player</Label>
-                                </div>
+            <DialogContent className="sm:max-w-[525px] w-[95vw] overflow-hidden" hideCloseButton>
+                <div className="dialog-scrollable custom-scrollbar">
+                    <DialogHeader>
+                        <DialogTitle>{editingMatch ? 'Edit Match' : 'Add New Match'}</DialogTitle>
+                        <DialogDescription>
+                            Record the details of the foosball match.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit(onSubmitMatch)}>
+                        <div className="grid gap-4 py-4">
+                            <div className="space-y-4">
+                                <Label className="text-base font-medium">Game Type</Label>
                                 <Controller
-                                    name="team1Player1"
+                                    name="gameType"
                                     control={control}
-                                    rules={{ required: 'Player is required' }}
                                     render={({ field }) => (
-                                        <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
-                                            <SelectTrigger id="t1p1">
-                                                <SelectValue placeholder="Select player">
-                                                    {field.value ? getPlayerDisplayName(field.value) : "Select player"}
-                                                </SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {normalizedPlayers.map((player, index) => {
-                                                    const uniqueKey = `t1p1-${player.uid.replace(/\W/g, '')}-${index}`;
-                                                    return (
-                                                        <SelectItem
-                                                            key={uniqueKey}
-                                                            value={player.uid}
-                                                        >
-                                                            {player.displayName}
-                                                        </SelectItem>
-                                                    );
-                                                })}
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                variant={field.value === "1v1" ? "default" : "outline"}
+                                                className="flex-1"
+                                                onClick={() => field.onChange("1v1")}
+                                                disabled={isSubmittingMatch}
+                                            >
+                                                <span className="mr-2">1v1</span>
+                                                {field.value === "1v1" && "Match"}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={field.value === "2v2" ? "default" : "outline"}
+                                                className="flex-1"
+                                                onClick={() => field.onChange("2v2")}
+                                                disabled={isSubmittingMatch}
+                                            >
+                                                <span className="mr-2">2v2</span>
+                                                {field.value === "2v2" && "Match"}
+                                            </Button>
+                                        </div>
                                     )}
                                 />
-                                {errors.team1Player1 && <p className="text-red-500 text-sm">{errors.team1Player1.message}</p>}
                             </div>
-                        ) : (
-                            <>
+
+                            {watchedGameType === '1v1' ? (
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
                                         <div
                                             className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
                                             style={{ backgroundColor: group?.teamColors?.teamOne }}
                                         />
-                                        <Label htmlFor="t1p1">Team 1 Defense</Label>
+                                        <Label htmlFor="t1p1">Team 1 Player</Label>
                                     </div>
                                     <Controller
                                         name="team1Player1"
                                         control={control}
-                                        rules={{ required: 'Defense player is required' }}
+                                        rules={{ required: 'Player is required' }}
                                         render={({ field }) => (
                                             <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
                                                 <SelectTrigger id="t1p1">
-                                                    <SelectValue placeholder="Select defense player">
-                                                        {field.value ? getPlayerDisplayName(field.value) : "Select defense player"}
+                                                    <SelectValue placeholder="Select player">
+                                                        {field.value ? getPlayerDisplayName(field.value) : "Select player"}
                                                     </SelectValue>
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -593,103 +543,103 @@ export default function MatchFormDialog({
                                     />
                                     {errors.team1Player1 && <p className="text-red-500 text-sm">{errors.team1Player1.message}</p>}
                                 </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
-                                            style={{ backgroundColor: group?.teamColors?.teamOne }}
+                            ) : (
+                                <>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
+                                                style={{ backgroundColor: group?.teamColors?.teamOne }}
+                                            />
+                                            <Label htmlFor="t1p1">Team 1 Defense</Label>
+                                        </div>
+                                        <Controller
+                                            name="team1Player1"
+                                            control={control}
+                                            rules={{ required: 'Defense player is required' }}
+                                            render={({ field }) => (
+                                                <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
+                                                    <SelectTrigger id="t1p1">
+                                                        <SelectValue placeholder="Select defense player">
+                                                            {field.value ? getPlayerDisplayName(field.value) : "Select defense player"}
+                                                        </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {normalizedPlayers.map((player, index) => {
+                                                            const uniqueKey = `t1p1-${player.uid.replace(/\W/g, '')}-${index}`;
+                                                            return (
+                                                                <SelectItem
+                                                                    key={uniqueKey}
+                                                                    value={player.uid}
+                                                                >
+                                                                    {player.displayName}
+                                                                </SelectItem>
+                                                            );
+                                                        })}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
                                         />
-                                        <Label htmlFor="t1p2">Team 1 Attack</Label>
+                                        {errors.team1Player1 && <p className="text-red-500 text-sm">{errors.team1Player1.message}</p>}
                                     </div>
-                                    <Controller
-                                        name="team1Player2"
-                                        control={control}
-                                        rules={{ required: 'Attack player is required' }}
-                                        render={({ field }) => (
-                                            <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
-                                                <SelectTrigger id="t1p2">
-                                                    <SelectValue placeholder="Select attack player">
-                                                        {field.value ? getPlayerDisplayName(field.value) : "Select attack player"}
-                                                    </SelectValue>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {normalizedPlayers.map((player, index) => {
-                                                        const uniqueKey = `t1p2-${player.uid.replace(/\W/g, '')}-${index}`;
-                                                        return (
-                                                            <SelectItem
-                                                                key={uniqueKey}
-                                                                value={player.uid}
-                                                            >
-                                                                {player.displayName}
-                                                            </SelectItem>
-                                                        );
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
-                                    />
-                                    {errors.team1Player2 && <p className="text-red-500 text-sm">{errors.team1Player2.message}</p>}
-                                </div>
-                            </>
-                        )}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
+                                                style={{ backgroundColor: group?.teamColors?.teamOne }}
+                                            />
+                                            <Label htmlFor="t1p2">Team 1 Attack</Label>
+                                        </div>
+                                        <Controller
+                                            name="team1Player2"
+                                            control={control}
+                                            rules={{ required: 'Attack player is required' }}
+                                            render={({ field }) => (
+                                                <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
+                                                    <SelectTrigger id="t1p2">
+                                                        <SelectValue placeholder="Select attack player">
+                                                            {field.value ? getPlayerDisplayName(field.value) : "Select attack player"}
+                                                        </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {normalizedPlayers.map((player, index) => {
+                                                            const uniqueKey = `t1p2-${player.uid.replace(/\W/g, '')}-${index}`;
+                                                            return (
+                                                                <SelectItem
+                                                                    key={uniqueKey}
+                                                                    value={player.uid}
+                                                                >
+                                                                    {player.displayName}
+                                                                </SelectItem>
+                                                            );
+                                                        })}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        />
+                                        {errors.team1Player2 && <p className="text-red-500 text-sm">{errors.team1Player2.message}</p>}
+                                    </div>
+                                </>
+                            )}
 
-                        {watchedGameType === '1v1' ? (
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <div
-                                        className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
-                                        style={{ backgroundColor: group?.teamColors?.teamTwo }}
-                                    />
-                                    <Label htmlFor="t2p1">Team 2 Player</Label>
-                                </div>
-                                <Controller
-                                    name="team2Player1"
-                                    control={control}
-                                    rules={{ required: 'Player is required' }}
-                                    render={({ field }) => (
-                                        <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
-                                            <SelectTrigger id="t2p1">
-                                                <SelectValue placeholder="Select player">
-                                                    {field.value ? getPlayerDisplayName(field.value) : "Select player"}
-                                                </SelectValue>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {normalizedPlayers.map((player, index) => {
-                                                    const uniqueKey = `t2p1-${player.uid.replace(/\W/g, '')}-${index}`;
-                                                    return (
-                                                        <SelectItem
-                                                            key={uniqueKey}
-                                                            value={player.uid}
-                                                        >
-                                                            {player.displayName}
-                                                        </SelectItem>
-                                                    );
-                                                })}
-                                            </SelectContent>
-                                        </Select>
-                                    )}
-                                />
-                                {errors.team2Player1 && <p className="text-red-500 text-sm">{errors.team2Player1.message}</p>}
-                            </div>
-                        ) : (
-                            <>
+                            {watchedGameType === '1v1' ? (
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
                                         <div
                                             className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
                                             style={{ backgroundColor: group?.teamColors?.teamTwo }}
                                         />
-                                        <Label htmlFor="t2p1">Team 2 Defense</Label>
+                                        <Label htmlFor="t2p1">Team 2 Player</Label>
                                     </div>
                                     <Controller
                                         name="team2Player1"
                                         control={control}
-                                        rules={{ required: 'Defense player is required' }}
+                                        rules={{ required: 'Player is required' }}
                                         render={({ field }) => (
                                             <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
                                                 <SelectTrigger id="t2p1">
-                                                    <SelectValue placeholder="Select defense player">
-                                                        {field.value ? getPlayerDisplayName(field.value) : "Select defense player"}
+                                                    <SelectValue placeholder="Select player">
+                                                        {field.value ? getPlayerDisplayName(field.value) : "Select player"}
                                                     </SelectValue>
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -708,105 +658,145 @@ export default function MatchFormDialog({
                                             </Select>
                                         )}
                                     />
-                                    {errors.team2Player1 && <p className="text-red-50 text-sm">{errors.team2Player1.message}</p>}
+                                    {errors.team2Player1 && <p className="text-red-500 text-sm">{errors.team2Player1.message}</p>}
                                 </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
-                                            style={{ backgroundColor: group?.teamColors?.teamTwo }}
+                            ) : (
+                                <>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
+                                                style={{ backgroundColor: group?.teamColors?.teamTwo }}
+                                            />
+                                            <Label htmlFor="t2p1">Team 2 Defense</Label>
+                                        </div>
+                                        <Controller
+                                            name="team2Player1"
+                                            control={control}
+                                            rules={{ required: 'Defense player is required' }}
+                                            render={({ field }) => (
+                                                <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
+                                                    <SelectTrigger id="t2p1">
+                                                        <SelectValue placeholder="Select defense player">
+                                                            {field.value ? getPlayerDisplayName(field.value) : "Select defense player"}
+                                                        </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {normalizedPlayers.map((player, index) => {
+                                                            const uniqueKey = `t2p1-${player.uid.replace(/\W/g, '')}-${index}`;
+                                                            return (
+                                                                <SelectItem
+                                                                    key={uniqueKey}
+                                                                    value={player.uid}
+                                                                >
+                                                                    {player.displayName}
+                                                                </SelectItem>
+                                                            );
+                                                        })}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
                                         />
-                                        <Label htmlFor="t2p2">Team 2 Attack</Label>
+                                        {errors.team2Player1 && <p className="text-red-50 text-sm">{errors.team2Player1.message}</p>}
                                     </div>
-                                    <Controller
-                                        name="team2Player2"
-                                        control={control}
-                                        rules={{ required: 'Attack player is required' }}
-                                        render={({ field }) => (
-                                            <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
-                                                <SelectTrigger id="t2p2">
-                                                    <SelectValue placeholder="Select attack player">
-                                                        {field.value ? getPlayerDisplayName(field.value) : "Select attack player"}
-                                                    </SelectValue>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {normalizedPlayers.map((player, index) => {
-                                                        const uniqueKey = `t2p2-${player.uid.replace(/\W/g, '')}-${index}`;
-                                                        return (
-                                                            <SelectItem
-                                                                key={uniqueKey}
-                                                                value={player.uid}
-                                                            >
-                                                                {player.displayName}
-                                                            </SelectItem>
-                                                        );
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <div
+                                                className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
+                                                style={{ backgroundColor: group?.teamColors?.teamTwo }}
+                                            />
+                                            <Label htmlFor="t2p2">Team 2 Attack</Label>
+                                        </div>
+                                        <Controller
+                                            name="team2Player2"
+                                            control={control}
+                                            rules={{ required: 'Attack player is required' }}
+                                            render={({ field }) => (
+                                                <Select onValueChange={field.onChange} value={field.value} disabled={isSubmittingMatch}>
+                                                    <SelectTrigger id="t2p2">
+                                                        <SelectValue placeholder="Select attack player">
+                                                            {field.value ? getPlayerDisplayName(field.value) : "Select attack player"}
+                                                        </SelectValue>
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {normalizedPlayers.map((player, index) => {
+                                                            const uniqueKey = `t2p2-${player.uid.replace(/\W/g, '')}-${index}`;
+                                                            return (
+                                                                <SelectItem
+                                                                    key={uniqueKey}
+                                                                    value={player.uid}
+                                                                >
+                                                                    {player.displayName}
+                                                                </SelectItem>
+                                                            );
+                                                        })}
+                                                    </SelectContent>
+                                                </Select>
+                                            )}
+                                        />
+                                        {errors.team2Player2 && <p className="text-red-500 text-sm">{errors.team2Player2.message}</p>}
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
+                                        style={{ backgroundColor: group?.teamColors?.teamOne }}
                                     />
-                                    {errors.team2Player2 && <p className="text-red-500 text-sm">{errors.team2Player2.message}</p>}
+                                    <Label htmlFor="t1score">Team 1 Score</Label>
                                 </div>
-                            </>
-                        )}
-
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                                <div
-                                    className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
-                                    style={{ backgroundColor: group?.teamColors?.teamOne }}
+                                <Input
+                                    id="t1score"
+                                    type="number"
+                                    min="0"
+                                    {...register("team1Score", { required: true, valueAsNumber: true, min: 0 })}
+                                    disabled={isSubmittingMatch}
                                 />
-                                <Label htmlFor="t1score">Team 1 Score</Label>
+                                {errors.team1Score && <p className="text-red-500 text-sm">Score is required and must be 0 or more.</p>}
                             </div>
-                            <Input
-                                id="t1score"
-                                type="number"
-                                min="0"
-                                {...register("team1Score", { required: true, valueAsNumber: true, min: 0 })}
-                                disabled={isSubmittingMatch}
-                            />
-                            {errors.team1Score && <p className="text-red-500 text-sm">Score is required and must be 0 or more.</p>}
-                        </div>
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                                <div
-                                    className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
-                                    style={{ backgroundColor: group?.teamColors?.teamTwo }}
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <div
+                                        className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
+                                        style={{ backgroundColor: group?.teamColors?.teamTwo }}
+                                    />
+                                    <Label htmlFor="t2score">Team 2 Score</Label>
+                                </div>
+                                <Input
+                                    id="t2score"
+                                    type="number"
+                                    min="0"
+                                    {...register("team2Score", { required: true, valueAsNumber: true, min: 0 })}
+                                    disabled={isSubmittingMatch}
                                 />
-                                <Label htmlFor="t2score">Team 2 Score</Label>
+                                {errors.team2Score && <p className="text-red-500 text-sm">Score is required and must be 0 or more.</p>}
                             </div>
-                            <Input
-                                id="t2score"
-                                type="number"
-                                min="0"
-                                {...register("team2Score", { required: true, valueAsNumber: true, min: 0 })}
-                                disabled={isSubmittingMatch}
-                            />
-                            {errors.team2Score && <p className="text-red-500 text-sm">Score is required and must be 0 or more.</p>}
-                        </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="playedAt">
-                                Played On
-                            </Label>
-                            <Input
-                                id="playedAt"
-                                type="date"
-                                {...register("playedAt", { required: "Date is required" })}
-                                disabled={isSubmittingMatch}
-                            />
-                            {errors.playedAt && <p className="text-red-500 text-sm">{errors.playedAt.message}</p>}
+                            <div className="space-y-2">
+                                <Label htmlFor="playedAt">
+                                    Played On
+                                </Label>
+                                <Input
+                                    id="playedAt"
+                                    type="date"
+                                    {...register("playedAt", { required: "Date is required" })}
+                                    disabled={isSubmittingMatch}
+                                />
+                                {errors.playedAt && <p className="text-red-500 text-sm">{errors.playedAt.message}</p>}
+                            </div>
                         </div>
-                    </div>
-                    <DialogFooter className="flex-col sm:flex-row gap-2">
-                        <DialogClose asChild>
-                            <Button type="button" variant="outline" disabled={isSubmittingMatch} className="w-full sm:w-auto">Cancel</Button>
-                        </DialogClose>
-                        <Button type="submit" disabled={isSubmittingMatch} className="w-full sm:w-auto">
-                            {isSubmittingMatch ? (editingMatch ? 'Saving...' : 'Adding...') : (editingMatch ? 'Save Changes' : 'Add Match')}
-                        </Button>
-                    </DialogFooter>
-                </form>
+                        <DialogFooter className="flex-col sm:flex-row gap-2">
+                            <DialogClose asChild>
+                                <Button type="button" variant="outline" disabled={isSubmittingMatch} className="w-full sm:w-auto">Cancel</Button>
+                            </DialogClose>
+                            <Button type="submit" disabled={isSubmittingMatch} className="w-full sm:w-auto">
+                                {isSubmittingMatch ? (editingMatch ? 'Saving...' : 'Adding...') : (editingMatch ? 'Save Changes' : 'Add Match')}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </div>
             </DialogContent>
         </Dialog>
     );

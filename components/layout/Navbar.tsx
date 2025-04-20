@@ -27,7 +27,7 @@ export default function Navbar() {
         <Link href={user ? "/dashboard" : "/"} className="relative group">
           <div className="absolute inset-0 bg-white rounded-lg -skew-x-6 transform transition-all duration-300 group-hover:skew-x-0"></div>
           <div className="absolute inset-0 border-2 border-navbar rounded-lg -skew-x-6 transform transition-all duration-300 group-hover:skew-x-0"></div>
-          <div className="relative flex items-center gap-3 px-3.5 py-1.5 text-black font-semibold text-2xl">
+          <div className="relative flex items-center gap-3 px-3 py-1 text-black font-semibold text-2xl">
             <Image 
               src="/images/logo_trans.png" 
               alt="Foosballek Logo" 

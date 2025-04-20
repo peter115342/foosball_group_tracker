@@ -140,6 +140,35 @@
   .border-navbar {
     border-color: var(--navbar-border);
   }
+
+  /* Custom scrollbar styling */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-muted) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--color-muted);
+    border-radius: 9999px;
+  }
+
+  /* For dialogs specifically - adds padding to prevent scrollbar from touching edges */
+  .dialog-scrollable {
+    padding-right: 4px;
+    margin-right: -4px;
+    max-height: calc(90vh - 16px);
+    overflow-y: auto;
+  }
 }
 
 /* Foosball table responsive styles */

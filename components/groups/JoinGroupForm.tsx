@@ -15,6 +15,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from "@/components/ui/dialog";
 
 interface JoinGroupFormProps {
@@ -80,7 +81,7 @@ export default function JoinGroupForm({ isOpen, onOpenChange, user }: JoinGroupF
       }
       onOpenChange(open);
     }}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" hideCloseButton>
         <DialogHeader>
           <DialogTitle>Join a Group</DialogTitle>
           <DialogDescription>
@@ -104,6 +105,11 @@ export default function JoinGroupForm({ isOpen, onOpenChange, user }: JoinGroupF
           </div>
           
           <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isJoining}>
+                Cancel
+              </Button>
+            </DialogClose>
             <Button type="submit" disabled={isJoining}>
               {isJoining ? 'Joining...' : 'Join Group'}
             </Button>
@@ -113,5 +119,3 @@ export default function JoinGroupForm({ isOpen, onOpenChange, user }: JoinGroupF
     </Dialog>
   );
 }
-
-
