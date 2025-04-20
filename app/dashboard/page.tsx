@@ -150,7 +150,6 @@ export default function DashboardPage() {
       
       fetchRateLimits();
       
-      // Set up an interval to update the cooldown timer
       if (rateLimit && rateLimit.cooldownRemaining > 0) {
         const interval = setInterval(() => {
           setRateLimit(prev => {
@@ -163,7 +162,6 @@ export default function DashboardPage() {
         return () => clearInterval(interval);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading, rateLimit?.cooldownRemaining]);
 
   const handleOpenDeleteDialog = (group: GroupDoc) => {
@@ -181,7 +179,6 @@ export default function DashboardPage() {
           const groupRef = doc(db, "groups", groupToDelete.id);
           await deleteDoc(groupRef);
           
-          // Decrement group count in rate limits
           const ratelimitRef = doc(db, 'ratelimits', user.uid);
           await updateDoc(ratelimitRef, {
             groupCount: increment(-1)
@@ -249,7 +246,7 @@ export default function DashboardPage() {
       ) : groups.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {groups.map((group) => (
-            <div key={group.id} className="border rounded-lg p-4 flex flex-col relative overflow-hidden">
+            <div key={group.id} className="border-2 rounded-lg p-4 flex flex-col relative overflow-hidden shadow-md hover:shadow-lg transition-shadow bg-card">
               <div
                 className="absolute -top-4 -left-4 w-16 h-16 rounded-full flex items-center justify-center text-2xl opacity-80"
                 style={{ backgroundColor: group.groupColor || '#cccccc' }}
@@ -289,10 +286,11 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground pl-10">
-                <span className="inline-block h-5 w-5 rounded-full border" style={{ backgroundColor: group.teamColors.teamOne }}></span>
+                <span className="inline-block h-5 w-5 rounded-full border-2 border-black dark:border-white" style={{ backgroundColor: group.teamColors.teamOne }}></span>
                 <span>vs</span>
-                <span className="inline-block h-5 w-5 rounded-full border" style={{ backgroundColor: group.teamColors.teamTwo }}></span>
+                <span className="inline-block h-5 w-5 rounded-full border-2 border-black dark:border-white" style={{ backgroundColor: group.teamColors.teamTwo }}></span>
               </div>
+
 
               {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && group.inviteCode && (
                 <div className="mt-2 mb-2 pt-2 border-t">

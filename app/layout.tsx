@@ -8,7 +8,7 @@ import Navbar from "@/components/layout/Navbar"; // Import the Navbar
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Foosball Group Tracker",
+  title: "Foosballek",
   description: "Track your foosball group scores and stats",
 };
 

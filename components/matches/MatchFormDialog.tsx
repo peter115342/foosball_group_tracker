@@ -18,6 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Switch } from "@/components/ui/switch";
 import {
     Select,
     SelectContent,
@@ -473,27 +474,44 @@ export default function MatchFormDialog({
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onSubmitMatch)}>
                     <div className="grid gap-4 py-4">
-                        <div className="space-y-2">
-                            <Label>Game Type</Label>
+                        <div className="space-y-4">
+                            <Label className="text-base font-medium">Game Type</Label>
                             <Controller
                                 name="gameType"
                                 control={control}
                                 render={({ field }) => (
-                                    <RadioGroup
-                                        onValueChange={field.onChange}
-                                        value={field.value}
-                                        className="flex gap-4"
-                                        disabled={isSubmittingMatch}
-                                    >
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="1v1" id="r1" />
-                                            <Label htmlFor="r1">1 vs 1</Label>
+                                    <div className="flex flex-col space-y-4">
+                                        <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent">
+                                            <div className="flex items-center space-x-3">
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <span className="text-lg font-medium">1v1</span>
+                                                </div>
+                                                <Label htmlFor="game-type-switch" className="text-base cursor-pointer">
+                                                    1 vs 1 Match
+                                                </Label>
+                                            </div>
+                                            <Switch
+                                                id="game-type-switch"
+                                                checked={field.value === "2v2"}
+                                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                onCheckedChange={(checked: any) => field.onChange(checked ? "2v2" : "1v1")}
+                                                disabled={isSubmittingMatch}
+                                            />
                                         </div>
-                                        <div className="flex items-center space-x-2">
-                                            <RadioGroupItem value="2v2" id="r2" />
-                                            <Label htmlFor="r2">2 vs 2</Label>
+                                        <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent">
+                                            <div className="flex items-center space-x-3">
+                                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <span className="text-lg font-medium">2v2</span>
+                                                </div>
+                                                <Label htmlFor="game-type-switch" className="text-base cursor-pointer">
+                                                    2 vs 2 Match
+                                                </Label>
+                                            </div>
+                                            <div className="h-6">
+                                                {field.value === "2v2" && <span className="text-sm text-primary">Selected</span>}
+                                            </div>
                                         </div>
-                                    </RadioGroup>
+                                    </div>
                                 )}
                             />
                         </div>
@@ -502,7 +520,7 @@ export default function MatchFormDialog({
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                     <div
-                                        className="w-4 h-4 rounded-full border border-black"
+                                        className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
                                         style={{ backgroundColor: group?.teamColors?.teamOne }}
                                     />
                                     <Label htmlFor="t1p1">Team 1 Player</Label>
@@ -541,7 +559,7 @@ export default function MatchFormDialog({
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
                                         <div
-                                            className="w-4 h-4 rounded-full border border-black"
+                                            className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
                                             style={{ backgroundColor: group?.teamColors?.teamOne }}
                                         />
                                         <Label htmlFor="t1p1">Team 1 Defense</Label>
@@ -578,7 +596,7 @@ export default function MatchFormDialog({
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
                                         <div
-                                            className="w-4 h-4 rounded-full border border-black"
+                                            className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
                                             style={{ backgroundColor: group?.teamColors?.teamOne }}
                                         />
                                         <Label htmlFor="t1p2">Team 1 Attack</Label>
@@ -619,7 +637,7 @@ export default function MatchFormDialog({
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2">
                                     <div
-                                        className="w-4 h-4 rounded-full border border-black"
+                                        className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
                                         style={{ backgroundColor: group?.teamColors?.teamTwo }}
                                     />
                                     <Label htmlFor="t2p1">Team 2 Player</Label>
@@ -658,7 +676,7 @@ export default function MatchFormDialog({
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
                                         <div
-                                            className="w-4 h-4 rounded-full border border-black"
+                                            className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
                                             style={{ backgroundColor: group?.teamColors?.teamTwo }}
                                         />
                                         <Label htmlFor="t2p1">Team 2 Defense</Label>
@@ -695,7 +713,7 @@ export default function MatchFormDialog({
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2">
                                         <div
-                                            className="w-4 h-4 rounded-full border border-black"
+                                            className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
                                             style={{ backgroundColor: group?.teamColors?.teamTwo }}
                                         />
                                         <Label htmlFor="t2p2">Team 2 Attack</Label>
@@ -735,7 +753,7 @@ export default function MatchFormDialog({
                         <div className="space-y-2">
                             <div className="flex items-center gap-2">
                                 <div
-                                    className="w-4 h-4 rounded-full border border-black"
+                                    className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
                                     style={{ backgroundColor: group?.teamColors?.teamOne }}
                                 />
                                 <Label htmlFor="t1score">Team 1 Score</Label>
@@ -752,7 +770,7 @@ export default function MatchFormDialog({
                         <div className="space-y-2">
                             <div className="flex items-center gap-2">
                                 <div
-                                    className="w-4 h-4 rounded-full border border-black"
+                                    className="w-5 h-5 rounded-full border-2 border-black dark:border-white"
                                     style={{ backgroundColor: group?.teamColors?.teamTwo }}
                                 />
                                 <Label htmlFor="t2score">Team 2 Score</Label>
