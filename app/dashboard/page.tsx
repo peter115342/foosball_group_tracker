@@ -217,18 +217,20 @@ export default function DashboardPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 md:px-8">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Your Groups</h1>
-        <div className="flex gap-2 items-center">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-8">
+        <h1 className="text-3xl font-bold">Groups</h1>
+        <div className="flex flex-row max-[480px]:flex-col gap-2 items-center max-[480px]:items-stretch w-full sm:w-auto">
           <Button 
             variant="outline" 
             onClick={() => setIsJoinGroupOpen(true)}
+            className="max-[480px]:w-full"
           >
             Join Group
           </Button>
           <Button 
             onClick={() => setIsCreateGroupOpen(true)}
             disabled={rateLimit ? rateLimit.cooldownRemaining > 0 : false}
+            className="max-[480px]:w-full"
           >
             {rateLimit && rateLimit.cooldownRemaining > 0 
               ? `Create Group (${Math.floor(rateLimit.cooldownRemaining / 60)}:${(rateLimit.cooldownRemaining % 60).toString().padStart(2, '0')})` 
@@ -260,8 +262,9 @@ export default function DashboardPage() {
                 {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="relative z-10">
-                        <Edit className="h-4 w-4" />
+                      <Button variant="outline" size="icon" className="h-9 w-9">
+                        <Edit className="h-5 w-5" />
+                        <span className="sr-only">Group Options</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
@@ -293,20 +296,20 @@ export default function DashboardPage() {
 
 
               {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && group.inviteCode && (
-                <div className="mt-2 mb-2 pt-2 border-t">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground">
+                <div className="mt-1 mb-2 pt-1 border-t">
+                  <div className="flex items-center justify-between h-12">
+                    <div className="text-sm text-muted-foreground">
                       <span className="font-semibold">Invite Code:</span> 
                       <span className="font-mono ml-1">{group.inviteCode}</span>
                     </div>
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="h-6 px-2"
+                      className="h-9 px-3"
                       onClick={() => handleCopyInviteCode(group.inviteCode || '')}
                     >
-                      <Copy className="h-3 w-3 mr-1" />
-                      <span className="text-xs">Copy</span>
+                      <Copy className="h-5 w-5 mr-1" />
+                      <span className="text-sm">Copy</span>
                     </Button>
                   </div>
                 </div>
@@ -318,7 +321,8 @@ export default function DashboardPage() {
                 </div>
                 <Button
                   variant="default"
-                  size="sm"
+                  size="default"
+                  className="h-12 px-6"
                   onClick={() => router.push(`/group/${group.id}`)}
                 >
                   View
