@@ -49,13 +49,14 @@ export default function Navbar() {
             <div className="absolute inset-0 bg-green-50/90 rounded-lg -skew-x-6 transform transition-all duration-300 group-hover:skew-x-0"></div>
             <div className="absolute inset-0 border-2 border-navbar rounded-lg -skew-x-6 transform transition-all duration-300 group-hover:skew-x-0"></div>
             <div className="relative flex items-center gap-3 px-3 py-1 text-black font-semibold text-2xl">
-              <Image 
-                src="/images/logo_trans.png" 
-                alt="Foosballek Logo" 
-                width={48} 
-                height={46} 
-                className="h-11.5 w-auto"
-              />
+            <Image 
+              src="/images/logo_trans.png" 
+              alt="Foosballek Logo" 
+              width={96}
+              height={96}
+              quality={100}
+              className="h-12 w-auto"
+            />
             </div>
           </Link>
         </div>

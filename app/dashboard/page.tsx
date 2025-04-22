@@ -267,19 +267,22 @@ export default function DashboardPage() {
                         <span className="sr-only">Group Options</span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Group Options</DropdownMenuLabel>
+                    <DropdownMenuContent align="end" className="w-58 p-2.75">
+                      <DropdownMenuLabel className="text-lg font-medium py-2">Group Options</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleOpenManageMembersDialog(group)}>
-                        <Users className="mr-2 h-4 w-4" />
+                      <DropdownMenuItem 
+                        onClick={() => handleOpenManageMembersDialog(group)}
+                        className="py-3 text-base cursor-pointer"
+                      >
+                        <Users className="mr-3 h-5 w-5" />
                         <span>{user.uid === group.adminUid ? "Manage Group" : "View Details"}</span>
                       </DropdownMenuItem>
                       {user.uid === group.adminUid && (
                         <DropdownMenuItem
                           onClick={() => handleOpenDeleteDialog(group)}
-                          className="text-red-600 focus:text-red-600"
+                          className="text-red-600 focus:text-red-600 py-3 text-base cursor-pointer"
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
+                          <Trash2 className="mr-3 h-5 w-5" />
                           <span>Delete Group</span>
                         </DropdownMenuItem>
                       )}

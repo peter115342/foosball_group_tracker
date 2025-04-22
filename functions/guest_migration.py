@@ -1,7 +1,6 @@
-import firebase_admin
 from firebase_admin import firestore
-from google.cloud.firestore_v1.base_query import FieldFilter
 from firebase_functions import https_fn
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 
 def migrate_guest_to_member(data, auth):
@@ -129,16 +128,16 @@ def migrate_guest_to_member(data, auth):
 
         return {
             "success": True,
-            "message": f"Successfully migrated guest '{guest_name}' to member '{member_name}'. Updated {updated_matches_count} matches.",
+            "message": f"Successfully migrated guest '{guest_name}' to member '{member_name}'. Updated {updated_matches_count} matches.",  # noqa: E501
         }
 
     except ValueError as e:
-        raise https_fn.HttpsError(
+        raise https_fn.HttpsError(  # noqa: B904
             code=https_fn.FunctionsErrorCode.INVALID_ARGUMENT, message=str(e)
         )
     except Exception as e:
         print(f"Error in migrate_guest_to_member: {str(e)}")
-        raise https_fn.HttpsError(
+        raise https_fn.HttpsError(  # noqa: B904
             code=https_fn.FunctionsErrorCode.INTERNAL,
             message="Internal server error during migration",
         )
