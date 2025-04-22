@@ -6,10 +6,13 @@ import { useAuth } from '@/context/authContext';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
 import { MoonIcon, SunIcon, LogOutIcon } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const pathname = usePathname();
+  const isLandingPage = pathname === '/';
 
   useEffect(() => {
     const isDark = document.documentElement.classList.contains('dark');
@@ -22,7 +25,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="border-navbar border-b bg-navbar sticky top-0 z-50">
+    <nav className="border-navbar border-b bg-[#468f49] sticky top-0 z-50">
       <div className="container mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
         <div className="flex items-center">
           {}
@@ -30,7 +33,7 @@ export default function Navbar() {
             href="https://github.com/peter115342/foosball_group_tracker" 
             target="_blank" 
             rel="noopener noreferrer"
-            className="flex items-center hover:opacity-80 transition-opacity"
+            className="hidden md:flex items-center hover:opacity-80 transition-opacity"
             aria-label="GitHub Repository"
           >
             <svg 
@@ -45,7 +48,7 @@ export default function Navbar() {
           </a>
           
           {}
-          <Link href={user ? "/dashboard" : "/"} className="relative group ml-8">
+          <Link href={user ? "/dashboard" : "/"} className="relative group ml-2 md:ml-8">
             <div className="absolute inset-0 bg-green-50/90 rounded-lg -skew-x-6 transform transition-all duration-300 group-hover:skew-x-0"></div>
             <div className="absolute inset-0 border-2 border-navbar rounded-lg -skew-x-6 transform transition-all duration-300 group-hover:skew-x-0"></div>
             <div className="relative flex items-center gap-3 px-3 py-1 text-black font-semibold text-2xl">
@@ -62,19 +65,21 @@ export default function Navbar() {
         </div>
         
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleDarkMode}
-            aria-label="Toggle dark mode"
-            className="h-10 w-10 text-navbar bg-white/10 hover:bg-white/20 hover:text-white rounded-md"
-          >
-            {isDarkMode ? (
-              <SunIcon className="h-6 w-6" />
-            ) : (
-              <MoonIcon className="h-6 w-6" />
-            )}
-          </Button>
+          {!isLandingPage && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleDarkMode}
+              aria-label="Toggle dark mode"
+              className="h-10 w-10 text-navbar bg-white/10 hover:bg-white/20 hover:text-white rounded-md"
+            >
+              {isDarkMode ? (
+                <SunIcon className="h-6 w-6" />
+              ) : (
+                <MoonIcon className="h-6 w-6" />
+              )}
+            </Button>
+          )}
           {user && (
             <Button
               variant="ghost"
