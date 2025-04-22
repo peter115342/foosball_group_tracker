@@ -10,6 +10,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -260,33 +261,40 @@ export default function DashboardPage() {
               <div className="flex justify-between items-start mb-2 pl-10">
                 <h2 className="text-xl font-semibold">{group.name}</h2>
                 {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && (
-                  <DropdownMenu>
+                  <DropdownMenu onOpenChange={(open) => {
+                    if (!open) {
+                      setTimeout(() => {
+                      }, 0);
+                    }
+                  }}>
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="icon" className="h-9 w-9">
                         <Edit className="h-5 w-5" />
                         <span className="sr-only">Group Options</span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-58 p-2.75">
-                      <DropdownMenuLabel className="text-lg font-medium py-2">Group Options</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onClick={() => handleOpenManageMembersDialog(group)}
-                        className="py-3 text-base cursor-pointer"
-                      >
-                        <Users className="mr-3 h-5 w-5" />
-                        <span>{user.uid === group.adminUid ? "Manage Group" : "View Details"}</span>
-                      </DropdownMenuItem>
-                      {user.uid === group.adminUid && (
-                        <DropdownMenuItem
-                          onClick={() => handleOpenDeleteDialog(group)}
-                          className="text-red-600 focus:text-red-600 py-3 text-base cursor-pointer"
+                    <DropdownMenuPortal>
+                      <DropdownMenuContent align="end" className="w-58 p-2.75">
+                        <DropdownMenuLabel className="text-lg font-medium py-2">Group Options</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem 
+                          onClick={() => handleOpenManageMembersDialog(group)}
+                          className="py-3 text-base cursor-pointer"
                         >
-                          <Trash2 className="mr-3 h-5 w-5" />
-                          <span>Delete Group</span>
+                          <Users className="mr-3 h-5 w-5" />
+                          <span>{user.uid === group.adminUid ? "Manage Group" : "View Details"}</span>
                         </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
+                        {user.uid === group.adminUid && (
+                          <DropdownMenuItem
+                            onClick={() => handleOpenDeleteDialog(group)}
+                            className="text-red-600 focus:text-red-600 py-3 text-base cursor-pointer"
+                          >
+                            <Trash2 className="mr-3 h-5 w-5" />
+                            <span>Delete Group</span>
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenuPortal>
                   </DropdownMenu>
                 )}
               </div>
