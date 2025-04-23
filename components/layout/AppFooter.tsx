@@ -12,7 +12,7 @@ export default function AppFooter() {
   }
 
   return (
-    <footer className="fixed bottom-0 left-0 w-full h-14 bg-[#468f49] border-t border-white/30 backdrop-blur-md z-20 text-white shadow-[0_-2px_10px_rgba(0,0,0,0.2)]">
+    <footer className="static md:fixed bottom-0 left-0 w-full h-14 bg-[#468f49] border-t border-white/30 backdrop-blur-md z-20 text-white shadow-[0_-2px_10px_rgba(0,0,0,0.2)]">
       <div className="h-full max-w-7xl mx-auto px-4 flex items-center justify-between">
         <span className="text-xs text-white/90">© 2025 peter115342</span>
         <div className="flex items-center gap-4">
@@ -40,7 +40,6 @@ export default function AppFooter() {
             </svg>
             Report Issues
           </a>
-
         </div>
       </div>
     </footer>
