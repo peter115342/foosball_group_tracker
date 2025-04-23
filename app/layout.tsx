@@ -23,7 +23,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           <Navbar />
-          <main className="pb-14">
+          <main className="md:pb-14">
             {children}
           </main>
           <AppFooter />

@@ -29,12 +29,24 @@ export default function LoginPage() {
   return (
     <div className="fixed inset-0 flex flex-col items-center bg-[#3d8c40] text-white overflow-hidden">
       <div className="absolute inset-0 w-full h-full">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] border-[8px] border-white/30 rounded-full"></div>
+        <div className="sm:hidden">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[180px] h-[180px] border-[8px] border-white/30 rounded-full"></div>
+          
+          <div className="absolute top-1/2 left-0 -translate-y-1/2 w-full h-[6px] bg-white/30"></div>
+          
+          <div className="absolute top-[60px] left-1/2 -translate-x-1/2 w-[180px] h-[90px] border-[8px] border-t-0 border-white/30 rounded-b-lg"></div>
+          
+          <div className="absolute bottom-[62px] left-1/2 -translate-x-1/2 w-[180px] h-[90px] border-[8px] border-b-0 border-white/30 rounded-t-lg"></div>
+        </div>
         
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[6px] h-full bg-white/30"></div>
-        
-        <div className="absolute top-1/2 left-0 -translate-y-1/2 w-[100px] h-[200px] border-[8px] border-l-0 border-white/30 rounded-r-lg"></div>
-        <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[100px] h-[200px] border-[8px] border-r-0 border-white/30 rounded-l-lg"></div>
+        <div className="hidden sm:block">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] border-[8px] border-white/30 rounded-full"></div>
+          
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[6px] h-full bg-white/30"></div>
+          
+          <div className="absolute top-1/2 left-0 -translate-y-1/2 w-[100px] h-[200px] border-[8px] border-l-0 border-white/30 rounded-r-lg"></div>
+          <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[100px] h-[200px] border-[8px] border-r-0 border-white/30 rounded-l-lg"></div>
+        </div>
       </div>
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -122,74 +134,75 @@ export default function LoginPage() {
         </motion.div>
       </div>
       
-      <footer className="w-full h-16 bg-gradient-to-r from-[#1f3f22]/90 to-[#2a4f2e]/90 border-t border-[#468f49]/30 backdrop-blur-md z-20 shadow-[0_-2px_10px_rgba(0,0,0,0.2)]">
-        <div className="h-full flex flex-wrap justify-center items-center gap-x-6 px-4 max-w-4xl mx-auto">
-          <a 
-            href="https://github.com/peter115342/foosball_group_tracker" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="flex items-center hover:text-blue-300 transition-colors font-medium text-sm"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="16" 
-              height="16" 
-              viewBox="0 0 24 24" 
-              fill="currentColor" 
-              className="mr-1 text-purple-400"
-            >
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-            </svg>
-            GitHub
-          </a>
-          <a 
-            href="https://revolut.me/username" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="flex items-center hover:text-blue-300 transition-colors font-medium text-sm"
-          >
-            <svg 
-              width="16" 
-              height="16" 
-              viewBox="0 0 34 56" 
-              xmlns="http://www.w3.org/2000/svg" 
-              fill="currentColor" 
-              className="mr-1 text-blue-400"
-            >
-              <g>
-                <path d="M8.1,10.7H0v32.8h8.1V10.7z"></path>
-                <path d="M33.6,12.6c0-7-5.7-12.6-12.6-12.6H0v7h19.9c3.2,0,5.8,2.5,5.8,5.5c0,1.5-0.5,3-1.6,4.1c-1.1,1.1-2.5,1.7-4,1.7h-7.8 c-0.3,0-0.5,0.2-0.5,0.5V25c0,0.1,0,0.2,0.1,0.3l13.2,18.3h9.6L21.6,25.2C28.2,24.9,33.6,19.3,33.6,12.6z"></path>
-              </g>
-            </svg>
-            Support me
-          </a>
-          <a 
-            href="https://github.com/peter115342/foosball_group_tracker/issues" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="flex items-center hover:text-blue-300 transition-colors text-blue-400 hover:underline font-medium text-sm"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="14" 
-              height="14" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-              className="mr-1"
-            >
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-            Report Issues
-          </a>
-          <span className="text-xs text-blue-200">© 2025 Peter115342</span>
-        </div>
-      </footer>
+      <footer className="w-full h-18 bg-gradient-to-r from-[#1f3f22] to-[#2a4f2e] border-t border-[#468f49]/50 backdrop-blur-md z-20 shadow-[0_-3px_10px_rgba(0,0,0,0.3)]">
+  <div className="h-full flex flex-wrap justify-center items-center gap-x-8 px-4 max-w-4xl mx-auto">
+    <a 
+      href="https://github.com/peter115342/foosball_group_tracker" 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      className="flex items-center hover:text-blue-300 transition-colors font-medium text-base"
+    >
+      <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        width="18" 
+        height="18" 
+        viewBox="0 0 24 24" 
+        fill="currentColor" 
+        className="mr-2 text-purple-400"
+      >
+        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+      </svg>
+      GitHub
+    </a>
+    <a 
+      href="https://revolut.me/username" 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      className="flex items-center hover:text-blue-300 transition-colors font-medium text-base"
+    >
+      <svg 
+        width="18" 
+        height="18" 
+        viewBox="0 0 34 56" 
+        xmlns="http://www.w3.org/2000/svg" 
+        fill="currentColor" 
+        className="mr-2 text-blue-400"
+      >
+        <g>
+          <path d="M8.1,10.7H0v32.8h8.1V10.7z"></path>
+          <path d="M33.6,12.6c0-7-5.7-12.6-12.6-12.6H0v7h19.9c3.2,0,5.8,2.5,5.8,5.5c0,1.5-0.5,3-1.6,4.1c-1.1,1.1-2.5,1.7-4,1.7h-7.8 c-0.3,0-0.5,0.2-0.5,0.5V25c0,0.1,0,0.2,0.1,0.3l13.2,18.3h9.6L21.6,25.2C28.2,24.9,33.6,19.3,33.6,12.6z"></path>
+        </g>
+      </svg>
+      Support me
+    </a>
+    <a 
+      href="https://github.com/peter115342/foosball_group_tracker/issues" 
+      target="_blank" 
+      rel="noopener noreferrer" 
+      className="flex items-center hover:text-blue-300 transition-colors text-blue-400 hover:underline font-medium text-base"
+    >
+      <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        width="16" 
+        height="16" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+        strokeLinejoin="round" 
+        className="mr-2"
+      >
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      Report Issues
+    </a>
+    <span className="text-sm text-blue-200 font-medium">© 2025 Peter115342</span>
+  </div>
+</footer>
+
     </div>
   );
 }
