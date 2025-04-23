@@ -81,6 +81,8 @@ export default function DashboardPage() {
   const [isManageMembersDialogOpen, setIsManageMembersDialogOpen] = useState(false);
   const [groupToManage, setGroupToManage] = useState<GroupDoc | null>(null);
   
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+
   const [rateLimit, setRateLimit] = useState<{
     groupCount: number;
     lastGroupCreation: Date | null;
@@ -118,26 +120,26 @@ export default function DashboardPage() {
       setGroupsLoading(false);
     }
   }, [user, loading]);
-  
+
   useEffect(() => {
     if (user && !loading) {
       const fetchRateLimits = async () => {
         try {
           const ratelimitRef = doc(db, 'ratelimits', user.uid);
           const ratelimitDoc = await getDoc(ratelimitRef);
-          
+
           if (ratelimitDoc.exists()) {
             const data = ratelimitDoc.data();
-            const lastCreation = data.lastGroupCreation ? 
+            const lastCreation = data.lastGroupCreation ?
               data.lastGroupCreation.toDate() : null;
-            
+
             let cooldownRemaining = 0;
             if (lastCreation) {
               const cooldownEnd = new Date(lastCreation.getTime() + (60 * 1000)); // 1 min
-              cooldownRemaining = Math.max(0, 
+              cooldownRemaining = Math.max(0,
                 Math.floor((cooldownEnd.getTime() - Date.now()) / 1000));
             }
-            
+
             setRateLimit({
               groupCount: data.groupCount || 0,
               lastGroupCreation: lastCreation,
@@ -148,9 +150,9 @@ export default function DashboardPage() {
           console.error("Error fetching rate limits:", error);
         }
       };
-      
+
       fetchRateLimits();
-      
+
       if (rateLimit && rateLimit.cooldownRemaining > 0) {
         const interval = setInterval(() => {
           setRateLimit(prev => {
@@ -159,15 +161,24 @@ export default function DashboardPage() {
             return { ...prev, cooldownRemaining: newRemaining };
           });
         }, 1000);
-        
+
         return () => clearInterval(interval);
       }
     }
   }, [user, loading, rateLimit?.cooldownRemaining]);
 
+  const resetAllDialogStates = () => {
+    setOpenDropdownId(null);
+    setGroupToManage(null);
+    setIsManageMembersDialogOpen(false);
+    setGroupToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
+
   const handleOpenDeleteDialog = (group: GroupDoc) => {
       setGroupToDelete(group);
       setIsDeleteDialogOpen(true);
+      setOpenDropdownId(null);
   };
 
   const handleConfirmDelete = async () => {
@@ -179,15 +190,14 @@ export default function DashboardPage() {
       try {
           const groupRef = doc(db, "groups", groupToDelete.id);
           await deleteDoc(groupRef);
-          
+
           const ratelimitRef = doc(db, 'ratelimits', user.uid);
           await updateDoc(ratelimitRef, {
             groupCount: increment(-1)
           });
-          
+
           toast.success(`Group "${groupToDelete.name}" deleted successfully.`);
-          setGroupToDelete(null);
-          setIsDeleteDialogOpen(false);
+          resetAllDialogStates();
       } catch (error) {
           console.error("Error deleting group:", error);
           toast.error("Error deleting group", { description: (error as Error).message });
@@ -199,6 +209,7 @@ export default function DashboardPage() {
   const handleOpenManageMembersDialog = (group: GroupDoc) => {
       setGroupToManage(group);
       setIsManageMembersDialogOpen(true);
+      setOpenDropdownId(null);
   };
 
   const handleCopyInviteCode = (inviteCode: string) => {
@@ -221,20 +232,20 @@ export default function DashboardPage() {
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-8">
         <h1 className="text-3xl font-bold">Groups</h1>
         <div className="flex flex-row max-[480px]:flex-col gap-2 items-center max-[480px]:items-stretch w-full sm:w-auto">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => setIsJoinGroupOpen(true)}
             className="max-[480px]:w-full"
           >
             Join Group
           </Button>
-          <Button 
+          <Button
             onClick={() => setIsCreateGroupOpen(true)}
             disabled={rateLimit ? rateLimit.cooldownRemaining > 0 : false}
             className="max-[480px]:w-full"
           >
-            {rateLimit && rateLimit.cooldownRemaining > 0 
-              ? `Create Group (${Math.floor(rateLimit.cooldownRemaining / 60)}:${(rateLimit.cooldownRemaining % 60).toString().padStart(2, '0')})` 
+            {rateLimit && rateLimit.cooldownRemaining > 0
+              ? `Create Group (${Math.floor(rateLimit.cooldownRemaining / 60)}:${(rateLimit.cooldownRemaining % 60).toString().padStart(2, '0')})`
               : 'Create Group'}
           </Button>
         </div>
@@ -261,10 +272,11 @@ export default function DashboardPage() {
               <div className="flex justify-between items-start mb-2 pl-10">
                 <h2 className="text-xl font-semibold">{group.name}</h2>
                 {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && (
-                  <DropdownMenu onOpenChange={(open) => {
-                    if (!open) {
-                      setTimeout(() => {
-                      }, 0);
+                  <DropdownMenu open={openDropdownId === group.id} onOpenChange={(open) => {
+                    if (open) {
+                      setOpenDropdownId(group.id);
+                    } else {
+                      setOpenDropdownId(null);
                     }
                   }}>
                     <DropdownMenuTrigger asChild>
@@ -277,7 +289,7 @@ export default function DashboardPage() {
                       <DropdownMenuContent align="end" className="w-58 p-2.75">
                         <DropdownMenuLabel className="text-lg font-medium py-2">Group Options</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           onClick={() => handleOpenManageMembersDialog(group)}
                           className="py-3 text-base cursor-pointer"
                         >
@@ -310,12 +322,12 @@ export default function DashboardPage() {
                 <div className="mt-1 mb-2 pt-1 border-t">
                   <div className="flex items-center justify-between h-12">
                     <div className="text-sm text-muted-foreground">
-                      <span className="font-semibold">Invite Code:</span> 
+                      <span className="font-semibold">Invite Code:</span>
                       <span className="font-mono ml-1">{group.inviteCode}</span>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="h-9 px-3"
                       onClick={() => handleCopyInviteCode(group.inviteCode || '')}
                     >
@@ -347,12 +359,12 @@ export default function DashboardPage() {
           <p className="text-muted-foreground mb-4">You have not created or joined any groups yet.</p>
           <div className="flex justify-center gap-3">
             <Button variant="outline" onClick={() => setIsJoinGroupOpen(true)}>Join a Group</Button>
-            <Button 
+            <Button
               onClick={() => setIsCreateGroupOpen(true)}
               disabled={rateLimit ? rateLimit.cooldownRemaining > 0 : false}
             >
-              {rateLimit && rateLimit.cooldownRemaining > 0 
-                ? `Create Group (${Math.floor(rateLimit.cooldownRemaining / 60)}:${(rateLimit.cooldownRemaining % 60).toString().padStart(2, '0')})` 
+              {rateLimit && rateLimit.cooldownRemaining > 0
+                ? `Create Group (${Math.floor(rateLimit.cooldownRemaining / 60)}:${(rateLimit.cooldownRemaining % 60).toString().padStart(2, '0')})`
                 : 'Create Your First Group'}
             </Button>
           </div>
@@ -374,16 +386,27 @@ export default function DashboardPage() {
         </>
       )}
 
-      {groupToManage && (
-        <ManageMembersDialog 
-          isOpen={isManageMembersDialogOpen}
-          onOpenChange={setIsManageMembersDialogOpen}
-          group={groupToManage}
-          currentUser={user}
-        />
-      )}
+      <ManageMembersDialog
+        isOpen={isManageMembersDialogOpen}
+        onOpenChange={(open) => {
+          setIsManageMembersDialogOpen(open);
+          if (!open) {
+            // Important: Reset ALL related state when the dialog closes
+            setOpenDropdownId(null);
+            setTimeout(() => setGroupToManage(null), 100); // Small delay to ensure clean unmount
+          }
+        }}
+        group={groupToManage}
+        currentUser={user}
+      />
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        setIsDeleteDialogOpen(open);
+        if (!open) {
+          setOpenDropdownId(null);
+          setTimeout(() => setGroupToDelete(null), 100); // Small delay to ensure clean unmount
+        }
+      }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure you want to delete this group?</AlertDialogTitle>

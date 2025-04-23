@@ -57,6 +57,7 @@ export default function ManageMembersDialog({
 }: GroupMembersProps) {
   const [members, setMembers] = useState<{[uid: string]: MemberData}>({});
   const [guests, setGuests] = useState<GuestData[]>([]);
+  const [savedGuests, setSavedGuests] = useState<GuestData[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditor, setIsEditor] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,11 +70,27 @@ export default function ManageMembersDialog({
   useEffect(() => {
     if (isOpen && group) {
       setMembers(group.members || {});
-      setGuests(Array.isArray(group.guests) ? group.guests : []);
+      const loadedGuests = Array.isArray(group.guests) ? group.guests : [];
+      setGuests(loadedGuests);
+      setSavedGuests(loadedGuests);
       setIsAdmin(currentUser.uid === group.adminUid);
       setIsEditor(group.members?.[currentUser.uid]?.role === 'editor' || currentUser.uid === group.adminUid);
     }
   }, [isOpen, group, currentUser]);
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setMembers({});
+      setGuests([]);
+      setSavedGuests([]);
+      setSelectedGuest('');
+      setSelectedMember('');
+      setGuestNameInput('');
+      setIsMigrating(false);
+      setIsSubmitting(false);
+    }
+    onOpenChange(open);
+  };
 
   const handleRoleChange = (uid: string, newRole: 'viewer' | 'editor') => {
     if (!isAdmin) return;
@@ -123,8 +140,9 @@ export default function ManageMembersDialog({
         members: members,
         guests: guests
       });
+      setSavedGuests([...guests]);
       toast.success('Group updated successfully');
-      onOpenChange(false);
+      handleOpenChange(false);
     } catch (error) {
       console.error('Error updating group:', error);
       toast.error('Failed to update group');
@@ -172,6 +190,7 @@ export default function ManageMembersDialog({
       });
 
       setGuests(guests.filter(guest => guest.id !== selectedGuest));
+      setSavedGuests(savedGuests.filter(guest => guest.id !== selectedGuest));
       
       setSelectedGuest('');
       setSelectedMember('');
@@ -186,8 +205,8 @@ export default function ManageMembersDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px] overflow-hidden"hideCloseButton>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[550px] overflow-hidden">
         <div className="dialog-scrollable custom-scrollbar">
           <DialogHeader>
             <DialogTitle>Manage Group</DialogTitle>
@@ -311,10 +330,10 @@ export default function ManageMembersDialog({
             {isAdmin && (
               <div className="border-t pt-4 mt-4">
                 <h3 className="font-medium mb-3">Migrate Guest to Member</h3>
-                {guests.length === 0 || Object.keys(members).length <= 1 ? (
+                {savedGuests.length === 0 || Object.keys(members).length <= 1 ? (
                   <p className="text-sm text-muted-foreground">
-                    {guests.length === 0 
-                      ? "Add guests first to migrate them to members." 
+                    {savedGuests.length === 0 
+                      ? "Save guests to Firestore first before migrating them to members." 
                       : "You need at least two members (including admin) to migrate guests."}
                   </p>
                 ) : (
@@ -330,7 +349,7 @@ export default function ManageMembersDialog({
                           <SelectValue placeholder="Select a guest" />
                         </SelectTrigger>
                         <SelectContent>
-                          {guests.map(guest => (
+                          {savedGuests.map(guest => (
                             <SelectItem key={guest.id} value={guest.id}>
                               {guest.name}
                             </SelectItem>
@@ -384,7 +403,12 @@ export default function ManageMembersDialog({
           
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline">Close</Button>
+              <Button 
+                variant="outline" 
+                onClick={() => handleOpenChange(false)}
+              >
+                Close
+              </Button>
             </DialogClose>
             {isEditor && (
               <Button 
