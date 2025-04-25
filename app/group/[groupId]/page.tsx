@@ -107,7 +107,6 @@ const formatPosition = (position?: string, gameType?: string): string => {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const formatPlayedAt = (timestamp: any) => {
   try {
-    // Handle Firestore timestamp (with toDate method)
     if (timestamp && typeof timestamp.toDate === 'function') {
       return timestamp.toDate().toLocaleDateString(undefined, { 
         year: 'numeric', 
@@ -115,7 +114,6 @@ const formatPlayedAt = (timestamp: any) => {
         day: 'numeric' 
       });
     } 
-    // Handle timestamp stored as an object with seconds and nanoseconds
     else if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
       const date = new Date(timestamp.seconds * 1000);
       return date.toLocaleDateString(undefined, { 
@@ -124,7 +122,6 @@ const formatPlayedAt = (timestamp: any) => {
         day: 'numeric' 
       });
     }
-    // Handle date string
     else if (timestamp && typeof timestamp === 'string') {
       const date = new Date(timestamp);
       if (!isNaN(date.getTime())) {
@@ -165,6 +162,14 @@ export default function GroupDetailPage() {
 
     const isAdmin = user?.uid === group?.adminUid;
     const canEditMatches = isAdmin || group?.members[user?.uid || '']?.role === 'editor';
+
+    useEffect(() => {
+        if (group?.name) {
+            document.title = `Foosballek/${group.name}`;
+        } else {
+            document.title = 'Foosballek';
+        }
+    }, [group]);
 
     useEffect(() => {
         if (!groupId || authLoading) return;
@@ -357,10 +362,10 @@ export default function GroupDetailPage() {
     return (
         <div className="container mx-auto p-4 md:p-8">
             <Button
-                variant="ghost"
+                variant="default"
                 size="sm"
                 onClick={() => router.push('/dashboard')}
-                className="mb-6 flex items-center text-muted-foreground hover:text-foreground"
+                className="mb-6 flex items-center"
             >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Dashboard
@@ -376,8 +381,8 @@ export default function GroupDetailPage() {
                     ></div>
                 )}
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    <span>Team 1: <span className="inline-block h-4 w-4 rounded-full border align-middle" style={{ backgroundColor: group.teamColors.teamOne }}></span></span>
-                    <span>Team 2: <span className="inline-block h-4 w-4 rounded-full border align-middle" style={{ backgroundColor: group.teamColors.teamTwo }}></span></span>
+                    <span>Team 1: <span className="inline-block h-5 w-5 rounded-full border-2 border-black dark:border-white align-middle" style={{ backgroundColor: group.teamColors.teamOne }}></span></span>
+                    <span>Team 2: <span className="inline-block h-5 w-5 rounded-full border-2 border-black dark:border-white align-middle" style={{ backgroundColor: group.teamColors.teamTwo }}></span></span>
                     {group.adminName && <span className="sm:ml-auto">Admin: {formatAdminDisplayName(group.adminName)}</span>}
                 </div>
             </header>
@@ -410,7 +415,7 @@ export default function GroupDetailPage() {
                                     <div className="flex items-center gap-x-3 gap-y-1 mb-2 flex-wrap">
                                         <div className="flex items-center gap-1.5">
                                             <span
-                                                className="inline-block h-4 w-4 rounded-full border border-black/50 dark:border-white/50"
+                                                className="inline-block h-5 w-5 rounded-full border-2 border-black dark:border-white"
                                                 style={{ backgroundColor: match.team1?.color }}
                                                 aria-hidden="true"
                                             ></span>
@@ -423,7 +428,7 @@ export default function GroupDetailPage() {
 
                                         <div className="flex items-center gap-1.5">
                                             <span
-                                                className="inline-block h-4 w-4 rounded-full border border-black/50 dark:border-white/50"
+                                                className="inline-block h-5 w-5 rounded-full border-2 border-black dark:border-white"
                                                 style={{ backgroundColor: match.team2?.color }}
                                                 aria-hidden="true"
                                             ></span>
@@ -432,9 +437,9 @@ export default function GroupDetailPage() {
                                             </span>
                                         </div>
 
-                                        <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground ml-1">{match.gameType}</span>
+                                        <span className="text-sm px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground ml-1">{match.gameType}</span>
                                         {match.winner && (
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ml-1 font-medium ${
+                                            <span className={`text-sm px-2.5 py-1 rounded-full ml-1 font-medium ${
                                                 match.winner === 'team1' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
                                                 match.winner === 'team2' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
                                                 'bg-gray-100 text-gray-800 dark:bg-gray-700/50 dark:text-gray-300'
@@ -445,31 +450,35 @@ export default function GroupDetailPage() {
                                     </div>
 
                                     <div className="text-sm text-muted-foreground mb-2 space-y-1">
-                                        <div>
-                                            <span className="inline-flex items-center gap-1.5 mr-1">
+                                        <div className="flex items-start">
+                                            <span className="inline-flex items-center gap-1.5 mr-2 min-w-[70px]">
                                                 <span
-                                                    className="inline-block h-3 w-3 rounded-full border border-black/50 dark:border-white/50 align-middle"
+                                                    className="inline-block h-4 w-4 rounded-full border-2 border-black dark:border-white"
                                                     style={{ backgroundColor: match.team1?.color }}
                                                     aria-hidden="true"
                                                 ></span>
                                                 <span className="font-medium">Team 1:</span>
                                             </span>
-                                            {match.team1?.players?.map(p =>
-                                                `${p.displayName}${formatPosition(p.position, match.gameType)}`
-                                            ).join(' & ') || 'N/A'}
+                                            <span>
+                                                {match.team1?.players?.map(p =>
+                                                    `${p.displayName}${formatPosition(p.position, match.gameType)}`
+                                                ).join(' & ') || 'N/A'}
+                                            </span>
                                         </div>
-                                        <div>
-                                            <span className="inline-flex items-center gap-1.5 mr-1">
+                                        <div className="flex items-start">
+                                            <span className="inline-flex items-center gap-1.5 mr-2 min-w-[70px]">
                                                 <span
-                                                    className="inline-block h-3 w-3 rounded-full border border-black/50 dark:border-white/50 align-middle"
+                                                    className="inline-block h-4 w-4 rounded-full border-2 border-black dark:border-white"
                                                     style={{ backgroundColor: match.team2?.color }}
                                                     aria-hidden="true"
                                                 ></span>
                                                 <span className="font-medium">Team 2:</span>
                                             </span>
-                                            {match.team2?.players?.map(p =>
-                                                `${p.displayName}${formatPosition(p.position, match.gameType)}`
-                                            ).join(' & ') || 'N/A'}
+                                            <span>
+                                                {match.team2?.players?.map(p =>
+                                                    `${p.displayName}${formatPosition(p.position, match.gameType)}`
+                                                ).join(' & ') || 'N/A'}
+                                            </span>
                                         </div>
                                     </div>
 
@@ -480,12 +489,12 @@ export default function GroupDetailPage() {
 
                                 {canEditMatches && (
                                     <div className="flex gap-2 flex-shrink-0 sm:pt-1">
-                                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleOpenEditMatchDialog(match)}>
-                                            <Edit className="h-4 w-4" />
+                                        <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleOpenEditMatchDialog(match)}>
+                                            <Edit className="h-5 w-5" />
                                             <span className="sr-only">Edit Match</span>
                                         </Button>
-                                        <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleOpenDeleteDialog(match.id)}>
-                                            <Trash2 className="h-4 w-4" />
+                                        <Button variant="destructive" size="icon" className="h-9 w-9" onClick={() => handleOpenDeleteDialog(match.id)}>
+                                            <Trash2 className="h-5 w-5" />
                                             <span className="sr-only">Delete Match</span>
                                         </Button>
                                     </div>

@@ -1,7 +1,8 @@
-import firebase_admin
+import logging
+
+import firebase_admin  # noqa: F401
 from firebase_admin import firestore
 from firebase_functions import firestore_fn
-import logging
 
 
 @firestore_fn.on_document_deleted(document="groups/{groupId}")

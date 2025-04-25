@@ -57,6 +57,7 @@ export default function ManageMembersDialog({
 }: GroupMembersProps) {
   const [members, setMembers] = useState<{[uid: string]: MemberData}>({});
   const [guests, setGuests] = useState<GuestData[]>([]);
+  const [savedGuests, setSavedGuests] = useState<GuestData[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isEditor, setIsEditor] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,11 +70,27 @@ export default function ManageMembersDialog({
   useEffect(() => {
     if (isOpen && group) {
       setMembers(group.members || {});
-      setGuests(Array.isArray(group.guests) ? group.guests : []);
+      const loadedGuests = Array.isArray(group.guests) ? group.guests : [];
+      setGuests(loadedGuests);
+      setSavedGuests(loadedGuests);
       setIsAdmin(currentUser.uid === group.adminUid);
       setIsEditor(group.members?.[currentUser.uid]?.role === 'editor' || currentUser.uid === group.adminUid);
     }
   }, [isOpen, group, currentUser]);
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setMembers({});
+      setGuests([]);
+      setSavedGuests([]);
+      setSelectedGuest('');
+      setSelectedMember('');
+      setGuestNameInput('');
+      setIsMigrating(false);
+      setIsSubmitting(false);
+    }
+    onOpenChange(open);
+  };
 
   const handleRoleChange = (uid: string, newRole: 'viewer' | 'editor') => {
     if (!isAdmin) return;
@@ -123,8 +140,9 @@ export default function ManageMembersDialog({
         members: members,
         guests: guests
       });
+      setSavedGuests([...guests]);
       toast.success('Group updated successfully');
-      onOpenChange(false);
+      handleOpenChange(false);
     } catch (error) {
       console.error('Error updating group:', error);
       toast.error('Failed to update group');
@@ -172,6 +190,7 @@ export default function ManageMembersDialog({
       });
 
       setGuests(guests.filter(guest => guest.id !== selectedGuest));
+      setSavedGuests(savedGuests.filter(guest => guest.id !== selectedGuest));
       
       setSelectedGuest('');
       setSelectedMember('');
@@ -186,214 +205,221 @@ export default function ManageMembersDialog({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Manage Group</DialogTitle>
-          <DialogDescription>
-            {isAdmin 
-              ? "Manage members and their roles for" 
-              : isEditor
-                ? "Manage guests and view members of"
-                : "View members of"} &quot;{group?.name}&quot;
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="py-4 space-y-6">
-          {group && isEditor && (
-            <InviteCodeDisplay 
-              groupName={group.name}
-              inviteCode={group.inviteCode}
-              onRegenerateCode={regenerateInviteCode}
-              isAdmin={isAdmin}
-            />
-          )}
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-[550px] overflow-hidden">
+        <div className="dialog-scrollable custom-scrollbar">
+          <DialogHeader>
+            <DialogTitle>Manage Group</DialogTitle>
+            <DialogDescription>
+              {isAdmin 
+                ? "Manage members and their roles for" 
+                : isEditor
+                  ? "Manage guests and view members of"
+                  : "View members of"} &quot;{group?.name}&quot;
+            </DialogDescription>
+          </DialogHeader>
           
-          <div>
-            <h3 className="font-medium mb-2">Members</h3>
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {Object.entries(members).map(([uid, memberData]) => (
-                <div key={uid} className="flex items-center justify-between p-2 border rounded">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>{memberData.name?.charAt(0)?.toUpperCase() || '?'}</AvatarFallback>
-                    </Avatar>
-                    <span>{memberData.name}</span>
-                    {uid === group?.adminUid && <span className="ml-1 text-xs text-muted-foreground">(Admin)</span>}
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {isAdmin && uid !== group?.adminUid && (
-                      <Select
-                        value={memberData.role}
-                        onValueChange={(value) => handleRoleChange(uid, value as 'viewer' | 'editor')}
-                        disabled={!isAdmin}
-                      >
-                        <SelectTrigger className="w-[110px]">
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="viewer">Viewer</SelectItem>
-                          <SelectItem value="editor">Editor</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                    
-                    {isAdmin && uid !== group?.adminUid && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveMember(uid)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-medium mb-2">Guest Players</h3>
-            
-            {isEditor && (
-              <div className="flex gap-2 mb-3">
-                <Input
-                  placeholder="Add guest name"
-                  value={guestNameInput}
-                  onChange={(e) => setGuestNameInput(e.target.value)}
-                  disabled={isSubmitting}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddGuest();
-                    }
-                  }}
-                />
-                <Button
-                  type="button"
-                  onClick={handleAddGuest}
-                  disabled={!guestNameInput.trim() || isSubmitting}
-                >
-                  <UserPlus className="h-4 w-4" />
-                </Button>
-              </div>
+          <div className="py-4 space-y-6">
+            {group && isEditor && (
+              <InviteCodeDisplay 
+                groupName={group.name}
+                inviteCode={group.inviteCode}
+                onRegenerateCode={regenerateInviteCode}
+                isAdmin={isAdmin}
+              />
             )}
             
-            {guests.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {guests.map(guest => (
-                  <div key={guest.id} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm">
-                    {guest.name}
-                    {isEditor && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="p-0 h-auto ml-1"
-                        onClick={() => handleRemoveGuest(guest.id)}
-                        disabled={isSubmitting}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    )}
+            <div>
+              <h3 className="font-medium mb-2">Members</h3>
+              <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                {Object.entries(members).map(([uid, memberData]) => (
+                  <div key={uid} className="flex items-center justify-between p-2 border rounded">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>{memberData.name?.charAt(0)?.toUpperCase() || '?'}</AvatarFallback>
+                      </Avatar>
+                      <span>{memberData.name}</span>
+                      {uid === group?.adminUid && <span className="ml-1 text-xs text-muted-foreground">(Admin)</span>}
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {isAdmin && uid !== group?.adminUid && (
+                        <Select
+                          value={memberData.role}
+                          onValueChange={(value) => handleRoleChange(uid, value as 'viewer' | 'editor')}
+                          disabled={!isAdmin}
+                        >
+                          <SelectTrigger className="w-[110px]">
+                            <SelectValue placeholder="Select role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="viewer">Viewer</SelectItem>
+                            <SelectItem value="editor">Editor</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                      
+                      {isAdmin && uid !== group?.adminUid && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveMember(uid)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No guest players added yet.</p>
-            )}
-          </div>
+            </div>
 
-          {isAdmin && (
-            <div className="border-t pt-4 mt-4">
-              <h3 className="font-medium mb-3">Migrate Guest to Member</h3>
-              {guests.length === 0 || Object.keys(members).length <= 1 ? (
-                <p className="text-sm text-muted-foreground">
-                  {guests.length === 0 
-                    ? "Add guests first to migrate them to members." 
-                    : "You need at least two members (including admin) to migrate guests."}
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-sm text-muted-foreground mb-1 block">Select Guest</label>
-                    <Select
-                      value={selectedGuest}
-                      onValueChange={setSelectedGuest}
-                      disabled={isMigrating}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a guest" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {guests.map(guest => (
-                          <SelectItem key={guest.id} value={guest.id}>
-                            {guest.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="flex items-center justify-center">
-                    <ArrowRight className="text-muted-foreground" />
-                  </div>
-                  
-                  <div>
-                    <label className="text-sm text-muted-foreground mb-1 block">Target Member</label>
-                    <Select
-                      value={selectedMember}
-                      onValueChange={setSelectedMember}
-                      disabled={isMigrating}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a member" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(members)
-                          .filter(([uid]) => uid !== group.adminUid) 
-                          .map(([uid, memberData]) => (
-                            <SelectItem key={uid} value={uid}>
-                              {memberData.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <Button 
-                    onClick={handleMigrateGuest}
-                    disabled={!selectedGuest || !selectedMember || isMigrating}
-                    className="w-full"
+            <div>
+              <h3 className="font-medium mb-2">Guest Players</h3>
+              
+              {isEditor && (
+                <div className="flex gap-2 mb-3">
+                  <Input
+                    placeholder="Add guest name"
+                    value={guestNameInput}
+                    onChange={(e) => setGuestNameInput(e.target.value)}
+                    disabled={isSubmitting}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddGuest();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddGuest}
+                    disabled={!guestNameInput.trim() || isSubmitting}
                   >
-                    {isMigrating ? 'Migrating...' : 'Migrate Guest Data to Member'}
+                    <UserPlus className="h-4 w-4" />
                   </Button>
-                  
-                  <p className="text-xs text-muted-foreground">
-                    This will transfer all match history from the guest to the selected member and remove the guest.
-                  </p>
                 </div>
               )}
+              
+              {guests.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {guests.map(guest => (
+                    <div key={guest.id} className="flex items-center bg-muted text-muted-foreground px-2 py-1 rounded-md text-sm">
+                      {guest.name}
+                      {isEditor && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="p-0 h-auto ml-1"
+                          onClick={() => handleRemoveGuest(guest.id)}
+                          disabled={isSubmitting}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No guest players added yet.</p>
+              )}
             </div>
-          )}
+
+            {isAdmin && (
+              <div className="border-t pt-4 mt-4">
+                <h3 className="font-medium mb-3">Migrate Guest to Member</h3>
+                {savedGuests.length === 0 || Object.keys(members).length <= 1 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {savedGuests.length === 0 
+                      ? "Save guests to Firestore first before migrating them to members." 
+                      : "You need at least two members (including admin) to migrate guests."}
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Select Guest</label>
+                      <Select
+                        value={selectedGuest}
+                        onValueChange={setSelectedGuest}
+                        disabled={isMigrating}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a guest" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {savedGuests.map(guest => (
+                            <SelectItem key={guest.id} value={guest.id}>
+                              {guest.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="flex items-center justify-center">
+                      <ArrowRight className="text-muted-foreground" />
+                    </div>
+                    
+                    <div>
+                      <label className="text-sm text-muted-foreground mb-1 block">Target Member</label>
+                      <Select
+                        value={selectedMember}
+                        onValueChange={setSelectedMember}
+                        disabled={isMigrating}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a member" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(members)
+                            .filter(([uid]) => uid !== group.adminUid) 
+                            .map(([uid, memberData]) => (
+                              <SelectItem key={uid} value={uid}>
+                                {memberData.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <Button 
+                      onClick={handleMigrateGuest}
+                      disabled={!selectedGuest || !selectedMember || isMigrating}
+                      className="w-full"
+                    >
+                      {isMigrating ? 'Migrating...' : 'Migrate Guest Data to Member'}
+                    </Button>
+                    
+                    <p className="text-xs text-muted-foreground">
+                      This will transfer all match history from the guest to the selected member and remove the guest.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button 
+                variant="outline" 
+                onClick={() => handleOpenChange(false)}
+              >
+                Close
+              </Button>
+            </DialogClose>
+            {isEditor && (
+              <Button 
+                onClick={handleSaveChanges}
+                disabled={isSubmitting || isMigrating}
+              >
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
+              </Button>
+            )}
+          </DialogFooter>
         </div>
-        
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Close</Button>
-          </DialogClose>
-          {isEditor && (
-            <Button 
-              onClick={handleSaveChanges}
-              disabled={isSubmitting || isMigrating}
-            >
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-          )}
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

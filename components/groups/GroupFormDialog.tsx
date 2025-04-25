@@ -14,6 +14,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -272,11 +273,11 @@ export default function GroupFormDialog({
       }
       onOpenChange(open);
     }}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px]" hideCloseButton>
         <DialogHeader>
           <DialogTitle>Create New Group</DialogTitle>
           <DialogDescription>
-            Create a new foosball group to track matches with friends or colleagues.
+            Create a new group with the colors of your foosball table.
           </DialogDescription>
         </DialogHeader>
 
@@ -410,6 +411,15 @@ export default function GroupFormDialog({
           </div>
 
           <DialogFooter>
+            <DialogClose asChild>
+              <Button 
+                type="button" 
+                variant="outline" 
+                disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
+              >
+                Cancel
+              </Button>
+            </DialogClose>
             <Button 
               type="submit" 
               disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
@@ -422,3 +432,4 @@ export default function GroupFormDialog({
     </Dialog>
   );
 }
+

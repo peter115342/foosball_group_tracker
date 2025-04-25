@@ -1,9 +1,7 @@
-from firebase_functions import https_fn, options
 from firebase_admin import initialize_app
-from firebase_admin import app_check
+from firebase_functions import https_fn
 
-from match_cleanup import on_group_deleted
-from guest_migration import migrate_guest_to_member
+from .guest_migration import migrate_guest_to_member
 
 initialize_app()
 

@@ -4,3 +4,5 @@ __pycache__/
 # Python virtual environment
 venv/
 *.local
+
+.ruff_cache

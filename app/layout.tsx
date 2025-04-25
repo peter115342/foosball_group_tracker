@@ -3,12 +3,13 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/authContext";
 import { Toaster } from "sonner";
-import Navbar from "@/components/layout/Navbar"; // Import the Navbar
+import Navbar from "@/components/layout/Navbar";
+import AppFooter from "@/components/layout/AppFooter";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Foosball Group Tracker",
+  title: "Foosballek",
   description: "Track your foosball group scores and stats",
 };
 
@@ -20,10 +21,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider> {}
-          <Navbar /> {}
-          <main>{children}</main> {}
-          <Toaster richColors position="top-right" /> {}
+        <AuthProvider>
+          <Navbar />
+          <main className="md:pb-14">
+            {children}
+          </main>
+          <AppFooter />
+          <Toaster richColors position="top-right" />
         </AuthProvider>
       </body>
     </html>
