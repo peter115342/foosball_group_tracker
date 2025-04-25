@@ -25,12 +25,13 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { db } from '@/lib/firebase/config';
-import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc, increment, getDoc, updateDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc, increment, getDoc, updateDoc, orderBy, limit, getDocs } from "firebase/firestore";
 import {Trash2,Users, Copy, Edit } from 'lucide-react';
 import { toast } from "sonner";
 import GroupFormDialog from '@/components/groups/GroupFormDialog';
 import JoinGroupForm from '@/components/groups/JoinGroupForm';
 import ManageMembersDialog from '@/components/groups/ManageMembersDialog';
+import { format } from 'date-fns';
 
 interface MemberData {
     name: string;
@@ -55,6 +56,7 @@ interface GroupDoc extends DocumentData {
         teamTwo: string;
     };
     groupColor?: string;
+    lastMatchDate?: Date | null;
 }
 
 const formatAdminDisplayName = (fullName: string | null | undefined): string => {
@@ -103,11 +105,83 @@ export default function DashboardPage() {
 
       const unsubscribe = onSnapshot(q, (querySnapshot: QuerySnapshot<DocumentData>) => {
         const userGroups: GroupDoc[] = [];
+        
         querySnapshot.forEach((doc) => {
-          userGroups.push({ id: doc.id, ...doc.data() } as GroupDoc);
+          userGroups.push({ id: doc.id, ...doc.data(), lastMatchDate: null } as GroupDoc);
         });
-        setGroups(userGroups.sort((a, b) => a.name.localeCompare(b.name)));
-        setGroupsLoading(false);
+        
+        const sortedGroups = userGroups.sort((a, b) => a.name.localeCompare(b.name));
+        setGroups(sortedGroups);
+        
+        const matchDataPromises: Promise<void>[] = [];
+        
+        sortedGroups.forEach(async (group) => {
+          const promise = (async () => {
+            try {
+              const matchesRef = collection(db, "matches");
+              const matchesQuery = query(
+                matchesRef, 
+                where("groupId", "==", group.id),
+                orderBy("playedAt", "desc"), 
+                limit(1)
+              );
+              
+              const matchesSnapshot = await getDocs(matchesQuery);
+              
+              if (!matchesSnapshot.empty) {
+                const matchData = matchesSnapshot.docs[0].data();
+                let matchDate = null;
+                
+                if (matchData.playedAt && typeof matchData.playedAt === 'object') {
+                  if (matchData.playedAt.seconds !== undefined) {
+                    matchDate = new Date(matchData.playedAt.seconds * 1000);
+                  } else if (matchData.playedAt.toDate) {
+                    matchDate = matchData.playedAt.toDate();
+                  }
+                }
+                
+                if (matchDate) {
+                  setGroups(currentGroups => {
+                    const updatedGroups = currentGroups.map(g => 
+                      g.id === group.id ? {...g, lastMatchDate: matchDate} : g
+                    );
+                    
+                    return updatedGroups.sort((a, b) => {
+                      if (a.lastMatchDate && b.lastMatchDate) {
+                        return b.lastMatchDate.getTime() - a.lastMatchDate.getTime();
+                      } else if (a.lastMatchDate) {
+                        return -1;
+                      } else if (b.lastMatchDate) {
+                        return 1;
+                      }
+                      return a.name.localeCompare(b.name);
+                    });
+                  });
+                }
+              }
+            } catch (error) {
+              console.error(`Error fetching matches for group ${group.id}:`, error);
+            }
+          })();
+          
+          matchDataPromises.push(promise);
+        });
+        
+        Promise.all(matchDataPromises).then(() => {
+          setGroups(currentGroups => 
+            [...currentGroups].sort((a, b) => {
+              if (a.lastMatchDate && b.lastMatchDate) {
+                return b.lastMatchDate.getTime() - a.lastMatchDate.getTime();
+              } else if (a.lastMatchDate) {
+                return -1;
+              } else if (b.lastMatchDate) {
+                return 1;
+              }
+              return a.name.localeCompare(b.name);
+            })
+          );
+          setGroupsLoading(false);
+        });
       }, (error) => {
         console.error("Error fetching groups:", error);
         toast.error("Error fetching groups", { description: error.message });
@@ -218,6 +292,11 @@ export default function DashboardPage() {
       .catch(() => toast.error('Failed to copy invite code'));
   };
 
+  const formatLastMatchDate = (date: Date | null) => {
+    if (!date) return null;
+    return format(date, 'MMM d, yyyy');
+  };
+
   if (loading || !user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-8">
@@ -270,7 +349,14 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex justify-between items-start mb-2 pl-10">
-                <h2 className="text-xl font-semibold">{group.name}</h2>
+                <div>
+                  <h2 className="text-xl font-semibold">{group.name}</h2>
+                  {group.lastMatchDate && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Last match: {formatLastMatchDate(group.lastMatchDate)}
+                    </div>
+                  )}
+                </div>
                 {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && (
                   <DropdownMenu open={openDropdownId === group.id} onOpenChange={(open) => {
                     if (open) {
@@ -317,7 +403,6 @@ export default function DashboardPage() {
                 <span className="inline-block h-5 w-5 rounded-full border-2 border-black dark:border-white" style={{ backgroundColor: group.teamColors.teamTwo }}></span>
               </div>
 
-
               {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && group.inviteCode && (
                 <div className="mt-1 mb-2 pt-1 border-t">
                   <div className="flex items-center justify-between h-12">
@@ -348,7 +433,7 @@ export default function DashboardPage() {
                   className="h-12 px-6"
                   onClick={() => router.push(`/group/${group.id}`)}
                 >
-                  View
+                  Matches
                 </Button>
               </div>
             </div>
@@ -391,9 +476,8 @@ export default function DashboardPage() {
         onOpenChange={(open) => {
           setIsManageMembersDialogOpen(open);
           if (!open) {
-            // Important: Reset ALL related state when the dialog closes
             setOpenDropdownId(null);
-            setTimeout(() => setGroupToManage(null), 100); // Small delay to ensure clean unmount
+            setTimeout(() => setGroupToManage(null), 100);
           }
         }}
         group={groupToManage}
@@ -404,7 +488,7 @@ export default function DashboardPage() {
         setIsDeleteDialogOpen(open);
         if (!open) {
           setOpenDropdownId(null);
-          setTimeout(() => setGroupToDelete(null), 100); // Small delay to ensure clean unmount
+          setTimeout(() => setGroupToDelete(null), 100);
         }
       }}>
         <AlertDialogContent>

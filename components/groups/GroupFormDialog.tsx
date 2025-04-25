@@ -277,7 +277,7 @@ export default function GroupFormDialog({
         <DialogHeader>
           <DialogTitle>Create New Group</DialogTitle>
           <DialogDescription>
-            Create a new foosball group to track matches with friends or colleagues.
+            Create a new group with the colors of your foosball table.
           </DialogDescription>
         </DialogHeader>
 

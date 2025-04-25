@@ -164,6 +164,14 @@ export default function GroupDetailPage() {
     const canEditMatches = isAdmin || group?.members[user?.uid || '']?.role === 'editor';
 
     useEffect(() => {
+        if (group?.name) {
+            document.title = `Foosballek/${group.name}`;
+        } else {
+            document.title = 'Foosballek';
+        }
+    }, [group]);
+
+    useEffect(() => {
         if (!groupId || authLoading) return;
         if (!user) {
             router.push('/');
@@ -442,31 +450,35 @@ export default function GroupDetailPage() {
                                     </div>
 
                                     <div className="text-sm text-muted-foreground mb-2 space-y-1">
-                                        <div>
-                                            <span className="inline-flex items-center gap-1.5 mr-1">
+                                        <div className="flex items-start">
+                                            <span className="inline-flex items-center gap-1.5 mr-2 min-w-[70px]">
                                                 <span
-                                                    className="inline-block h-4 w-4 rounded-full border-2 border-black dark:border-white align-middle"
+                                                    className="inline-block h-4 w-4 rounded-full border-2 border-black dark:border-white"
                                                     style={{ backgroundColor: match.team1?.color }}
                                                     aria-hidden="true"
                                                 ></span>
                                                 <span className="font-medium">Team 1:</span>
                                             </span>
-                                            {match.team1?.players?.map(p =>
-                                                `${p.displayName}${formatPosition(p.position, match.gameType)}`
-                                            ).join(' & ') || 'N/A'}
+                                            <span>
+                                                {match.team1?.players?.map(p =>
+                                                    `${p.displayName}${formatPosition(p.position, match.gameType)}`
+                                                ).join(' & ') || 'N/A'}
+                                            </span>
                                         </div>
-                                        <div>
-                                            <span className="inline-flex items-center gap-1.5 mr-1">
+                                        <div className="flex items-start">
+                                            <span className="inline-flex items-center gap-1.5 mr-2 min-w-[70px]">
                                                 <span
-                                                    className="inline-block h-4 w-4 rounded-full border-2 border-black dark:border-white align-middle"
+                                                    className="inline-block h-4 w-4 rounded-full border-2 border-black dark:border-white"
                                                     style={{ backgroundColor: match.team2?.color }}
                                                     aria-hidden="true"
                                                 ></span>
                                                 <span className="font-medium">Team 2:</span>
                                             </span>
-                                            {match.team2?.players?.map(p =>
-                                                `${p.displayName}${formatPosition(p.position, match.gameType)}`
-                                            ).join(' & ') || 'N/A'}
+                                            <span>
+                                                {match.team2?.players?.map(p =>
+                                                    `${p.displayName}${formatPosition(p.position, match.gameType)}`
+                                                ).join(' & ') || 'N/A'}
+                                            </span>
                                         </div>
                                     </div>
 
