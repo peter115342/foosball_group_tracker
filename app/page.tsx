@@ -155,7 +155,7 @@ export default function LoginPage() {
       GitHub
     </a>
     <a 
-      href="https://revolut.me/username" 
+      href="https://revolut.me/peterw6lm" 
       target="_blank" 
       rel="noopener noreferrer" 
       className="flex items-center hover:text-blue-300 transition-colors font-medium text-base"
