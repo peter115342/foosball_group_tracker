@@ -15,6 +15,7 @@ import {
     QuerySnapshot,
     deleteDoc,
     Timestamp,
+    getDoc,
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -159,9 +160,54 @@ export default function GroupDetailPage() {
     const [editingMatch, setEditingMatch] = useState<MatchData | null>(null);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [matchToDelete, setMatchToDelete] = useState<string | null>(null);
+    const [matchRateLimit, setMatchRateLimit] = useState<{
+        lastMatchCreation: Date | null;
+        cooldownRemaining: number;
+    } | null>(null);
 
     const isAdmin = user?.uid === group?.adminUid;
     const canEditMatches = isAdmin || group?.members[user?.uid || '']?.role === 'editor';
+
+    const fetchMatchRateLimit = async () => {
+        if (!user) return;
+        
+        try {
+            const ratelimitRef = doc(db, 'matchRatelimits', user.uid);
+            const ratelimitDoc = await getDoc(ratelimitRef);
+            
+            if (ratelimitDoc.exists()) {
+                const data = ratelimitDoc.data();
+                const lastCreation = data.lastMatchCreation ? 
+                    data.lastMatchCreation.toDate() : null;
+                
+                let cooldownRemaining = 0;
+                if (lastCreation) {
+                    const cooldownEnd = new Date(lastCreation.getTime() + (10 * 1000)); // 10 seconds
+                    cooldownRemaining = Math.max(0, 
+                        Math.floor((cooldownEnd.getTime() - Date.now()) / 1000));
+                }
+                
+                setMatchRateLimit({
+                    lastMatchCreation: lastCreation,
+                    cooldownRemaining
+                });
+            } else {
+                setMatchRateLimit({
+                    lastMatchCreation: null,
+                    cooldownRemaining: 0
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching match rate limits:", error);
+        }
+    };
+
+    const handleMatchDialogOpenChange = (open: boolean) => {
+        setIsMatchDialogOpen(open);
+        if (!open) {
+            fetchMatchRateLimit();
+        }
+    };
 
     useEffect(() => {
         if (group?.name) {
@@ -170,6 +216,24 @@ export default function GroupDetailPage() {
             document.title = 'Foosballek';
         }
     }, [group]);
+
+    useEffect(() => {
+        if (!user) return;
+        
+        fetchMatchRateLimit();
+        
+        if (matchRateLimit && matchRateLimit.cooldownRemaining > 0) {
+            const interval = setInterval(() => {
+                setMatchRateLimit(prev => {
+                    if (!prev) return prev;
+                    const newRemaining = Math.max(0, prev.cooldownRemaining - 1);
+                    return { ...prev, lastMatchCreation: prev.lastMatchCreation, cooldownRemaining: newRemaining };
+                });
+            }, 1000);
+            
+            return () => clearInterval(interval);
+        }
+    }, [user, matchRateLimit?.cooldownRemaining]);
 
     useEffect(() => {
         if (!groupId || authLoading) return;
@@ -393,10 +457,12 @@ export default function GroupDetailPage() {
                     {canEditMatches && (
                         <Button
                             onClick={handleOpenAddMatchDialog}
-                            disabled={selectablePlayers.length < 1}
+                            disabled={selectablePlayers.length < 1 || !! (matchRateLimit && matchRateLimit.cooldownRemaining > 0)}
                             size="sm"
                         >
-                            Add Match
+                            {matchRateLimit && matchRateLimit.cooldownRemaining > 0 
+                                ? `Add Match (${matchRateLimit.cooldownRemaining}s)` 
+                                : 'Add Match'}
                         </Button>
                     )}
                 </div>
@@ -507,10 +573,12 @@ export default function GroupDetailPage() {
                             {canEditMatches && (
                                 <Button
                                     onClick={handleOpenAddMatchDialog}
-                                    disabled={selectablePlayers.length < 1}
+                                    disabled={selectablePlayers.length < 1 ||  !! (matchRateLimit && matchRateLimit.cooldownRemaining > 0)}
                                     size="sm"
                                 >
-                                    Record First Match
+                                    {matchRateLimit && matchRateLimit.cooldownRemaining > 0 
+                                        ? `Record First Match (${matchRateLimit.cooldownRemaining}s)` 
+                                        : 'Record First Match'}
                                 </Button>
                             )}
                         </div>
@@ -521,12 +589,13 @@ export default function GroupDetailPage() {
             {group && (
                 <MatchFormDialog
                     isOpen={isMatchDialogOpen}
-                    onOpenChange={setIsMatchDialogOpen}
+                    onOpenChange={handleMatchDialogOpenChange}
                     editingMatch={editingMatch}
                     group={group}
                     groupId={groupId}
                     selectablePlayers={selectablePlayers}
                     members={members}
+                    user={user || { uid: '', displayName: null }}
                 />
             )}
 

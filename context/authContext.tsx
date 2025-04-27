@@ -5,8 +5,7 @@ import { onAuthStateChanged, User, GoogleAuthProvider, signInWithPopup, signOut 
 import { auth, db } from '@/lib/firebase/config';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useRouter, usePathname } from 'next/navigation';
-import { Skeleton } from "@/components/ui/skeleton"; // For loading state
-
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface AuthContextType {
   user: User | null;
@@ -35,7 +34,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
-        // Initialize rate limits for the user if they don't exist
         const ratelimitRef = doc(db, 'ratelimits', currentUser.uid);
         try {
           const ratelimitDoc = await getDoc(ratelimitRef);
@@ -43,6 +41,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             await setDoc(ratelimitRef, {
               groupCount: 0,
               lastGroupCreation: serverTimestamp()
+            });
+          }
+          
+          const matchRatelimitRef = doc(db, 'matchRatelimits', currentUser.uid);
+          const matchRatelimitDoc = await getDoc(matchRatelimitRef);
+          if (!matchRatelimitDoc.exists()) {
+            await setDoc(matchRatelimitRef, {
+              lastMatchCreation: serverTimestamp()
             });
           }
         } catch (error) {
@@ -55,7 +61,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  // --- Redirection Logic ---
   useEffect(() => {
     if (loading) return;
 
@@ -85,7 +90,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLoading(true);
     try {
       await signOut(auth);
-      // router.push('/');
     } catch (error) {
       console.error("Error signing out:", error);
       setLoading(false);
@@ -101,17 +105,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return (
       <AuthContext.Provider value={value}>
-          {!loading ? children : <GlobalLoadingSpinner />} {/* Render children only when not loading, or show a spinner */}
+          {!loading ? children : <GlobalLoadingSpinner />}
       </AuthContext.Provider>
   );
 };
 
 const GlobalLoadingSpinner = () => (
     <div className="flex items-center justify-center min-h-screen">
-        <Skeleton className="h-12 w-12 rounded-full" /> {/* Or use a proper spinner component */}
+        <Skeleton className="h-12 w-12 rounded-full" />
     </div>
 );
-
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
