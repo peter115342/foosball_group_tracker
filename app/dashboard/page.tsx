@@ -307,7 +307,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 md:px-8">
+    <div className="container mx-auto py-8 px-4 md:px-8 min-h-screen">
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 mb-8">
         <h1 className="text-3xl font-bold">Groups</h1>
         <div className="flex flex-row max-[480px]:flex-col gap-2 items-center max-[480px]:items-stretch w-full sm:w-auto">

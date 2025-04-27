@@ -206,7 +206,7 @@ export default function ManageMembersDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[550px] overflow-hidden">
+      <DialogContent className="sm:max-w-[550px] overflow-hidden"hideCloseButton>
         <div className="dialog-scrollable custom-scrollbar">
           <DialogHeader>
             <DialogTitle>Manage Group</DialogTitle>
