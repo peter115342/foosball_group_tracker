@@ -1,4 +1,6 @@
 import logging
+from collections import defaultdict
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from firebase_admin import firestore
@@ -98,9 +100,8 @@ def recalculate_group_stats(db: firestore.Client, group_id: str) -> None:
         general_stats = {
             "totalMatches": 0,
             "matchesByGameType": {"1v1": 0, "2v2": 0},
-            "highestScore": {"score": 0, "matchId": "", "player": "", "date": None},
             "longestWinStreak": {"player": "", "count": 0, "playerName": ""},
-            "recentMatches": [],
+            "mostMatchesInOneDay": {"date": None, "count": 0},
         }
 
         initialize_player_stats(player_stats, group_data)
@@ -113,34 +114,28 @@ def recalculate_group_stats(db: firestore.Client, group_id: str) -> None:
                 create_team_color_stats_object()
             )
 
+        # Track matches per day to find most active day
+        matches_per_day = defaultdict(int)
+
         for match_doc in matches:
             match_data = match_doc.to_dict()
             match_data["id"] = match_doc.id
 
+            # Track matches per day
             if "playedAt" in match_data:
-                general_stats["recentMatches"].append(
-                    {
-                        "id": match_doc.id,
-                        "playedAt": match_data["playedAt"],
-                        "team1Score": match_data.get("team1", {}).get("score", 0),
-                        "team2Score": match_data.get("team2", {}).get("score", 0),
-                        "gameType": match_data.get("gameType", "1v1"),
-                        "winner": match_data.get("winner", "draw"),
-                    }
-                )
+                match_date = get_date_string_from_timestamp(match_data["playedAt"])
+                if match_date:
+                    matches_per_day[match_date] += 1
 
             process_match(match_data, player_stats, team_color_stats, general_stats)
 
-        if general_stats["recentMatches"]:
-            general_stats["recentMatches"].sort(
-                key=lambda x: x["playedAt"].get("seconds", 0)
-                if isinstance(x["playedAt"], dict)
-                else x["playedAt"].timestamp()
-                if hasattr(x["playedAt"], "timestamp")
-                else 0,
-                reverse=True,
-            )
-            general_stats["recentMatches"] = general_stats["recentMatches"][:5]
+        # Find the day with most matches
+        if matches_per_day:
+            most_active_day = max(matches_per_day.items(), key=lambda x: x[1])
+            general_stats["mostMatchesInOneDay"] = {
+                "date": most_active_day[0],  # Date string
+                "count": most_active_day[1],  # Number of matches
+            }
 
         calculate_derived_stats(player_stats, team_color_stats)
 
@@ -159,6 +154,21 @@ def recalculate_group_stats(db: firestore.Client, group_id: str) -> None:
 
     except Exception as e:
         logging.error(f"Error calculating stats for group {group_id}: {str(e)}")
+
+
+def get_date_string_from_timestamp(timestamp: Any) -> Optional[str]:
+    """Convert a Firestore timestamp to a date string (YYYY-MM-DD format)."""
+    try:
+        if hasattr(timestamp, "toDate"):
+            date_obj = timestamp.toDate()
+            return date_obj.strftime("%Y-%m-%d")
+        elif isinstance(timestamp, dict) and "seconds" in timestamp:
+            date_obj = datetime.fromtimestamp(timestamp["seconds"])
+            return date_obj.strftime("%Y-%m-%d")
+        return None
+    except Exception as e:
+        logging.error(f"Error converting timestamp to date: {e}")
+        return None
 
 
 def initialize_player_stats(
@@ -237,9 +247,8 @@ def create_empty_stats(
         "teamColorStats": team_color_stats,
         "totalMatches": 0,
         "matchesByGameType": {"1v1": 0, "2v2": 0},
-        "highestScore": {"score": 0, "matchId": "", "player": "", "date": None},
         "longestWinStreak": {"player": "", "count": 0, "playerName": ""},
-        "recentMatches": [],
+        "mostMatchesInOneDay": {"date": None, "count": 0},
     }
 
     stats_ref = db.collection("groupStats").document(group_id)
@@ -270,9 +279,6 @@ def process_match(
 
     team1_players = extract_players_from_team(team1_data)
     team2_players = extract_players_from_team(team2_data)
-
-    check_highest_score(general_stats, team1_score, team1_players, match_data)
-    check_highest_score(general_stats, team2_score, team2_players, match_data)
 
     update_team_color_stats(
         team_color_stats, team1_color, team2_color, team1_score, team2_score, winner
@@ -307,19 +313,6 @@ def extract_players_from_team(team_data: Dict[str, Any]) -> List[Dict[str, Any]]
             ]
 
     return players
-
-
-def check_highest_score(
-    general_stats: Dict[str, Any],
-    score: int,
-    players: List[Dict[str, Any]],
-    match_data: Dict[str, Any],
-) -> None:
-    if score > general_stats["highestScore"]["score"] and players:
-        general_stats["highestScore"]["score"] = score
-        general_stats["highestScore"]["matchId"] = match_data.get("id", "")
-        general_stats["highestScore"]["player"] = players[0].get("displayName", "")
-        general_stats["highestScore"]["date"] = match_data.get("playedAt")
 
 
 def update_team_color_stats(

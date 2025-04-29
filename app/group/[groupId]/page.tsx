@@ -473,9 +473,9 @@ export default function GroupDetailPage() {
             </header>
 
             <Tabs defaultValue="matches" className="w-full">
-                <TabsList className="mb-4">
-                    <TabsTrigger value="matches">Matches</TabsTrigger>
-                    <TabsTrigger value="statistics">Statistics</TabsTrigger>
+                <TabsList className="mb-4 w-full flex justify-center sm:justify-start">
+                    <TabsTrigger value="matches" className="px-10 py-3 text-lg">Matches</TabsTrigger>
+                    <TabsTrigger value="statistics" className="px-10 py-3 text-lg">Statistics</TabsTrigger>
                 </TabsList>
 
                 {/* Matches Tab */}

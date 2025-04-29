@@ -22,7 +22,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { BarChart, Clock, User, TrendingUp } from 'lucide-react';
+import { BarChart, Calendar, User, TrendingUp } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 
 interface PlayerStats {
@@ -63,15 +63,6 @@ interface TeamColorStats {
     goalsConceded: number;
 }
 
-interface RecentMatch {
-    id: string;
-    playedAt: Timestamp | { seconds: number; nanoseconds: number };
-    team1Score: number;
-    team2Score: number;
-    gameType: '1v1' | '2v2';
-    winner: 'team1' | 'team2' | 'draw';
-}
-
 interface GroupStats {
     groupId: string;
     lastUpdated: Timestamp;
@@ -86,18 +77,15 @@ interface GroupStats {
         '1v1': number;
         '2v2': number;
     };
-    highestScore: {
-        score: number;
-        matchId: string;
-        player: string;
-        date: Timestamp | { seconds: number; nanoseconds: number };
-    };
     longestWinStreak: {
         player: string;
         count: number;
         playerName: string;
     };
-    recentMatches: RecentMatch[];
+    mostMatchesInOneDay: {
+        date: string;
+        count: number;
+    };
 }
 
 interface GroupData {
@@ -115,7 +103,7 @@ interface StatisticsSectionProps {
     group: GroupData;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
 const formatPlayedAt = (timestamp: any) => {
   try {
     if (timestamp && typeof timestamp.toDate === 'function') {
@@ -150,6 +138,22 @@ const formatPlayedAt = (timestamp: any) => {
   }
 };
 
+// Format a YYYY-MM-DD date string to a more readable format
+const formatDateString = (dateStr: string): string => {
+  try {
+    if (!dateStr) return 'Unknown date';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString(undefined, { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  } catch (err) {
+    console.error("Error formatting date string:", err, dateStr);
+    return 'Date format error';
+  }
+};
+
 export default function StatisticsSection({
     groupStats,
     statsLoading,
@@ -172,7 +176,7 @@ export default function StatisticsSection({
             ) : (
                 <>
                     {/* Group Overview Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle className="flex items-center gap-2">
@@ -209,6 +213,27 @@ export default function StatisticsSection({
                                 )}
                             </CardContent>
                         </Card>
+                        
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardTitle className="flex items-center gap-2">
+                                    <Calendar className="h-5 w-5 text-primary" />
+                                    Most Active Day
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                {groupStats.mostMatchesInOneDay.count > 0 ? (
+                                    <>
+                                        <div className="text-3xl font-bold">{groupStats.mostMatchesInOneDay.count} matches</div>
+                                        <div className="text-sm text-muted-foreground mt-1">
+                                            on {groupStats.mostMatchesInOneDay.date ? formatDateString(groupStats.mostMatchesInOneDay.date) : 'Unknown date'}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="text-sm text-muted-foreground">No matches yet</div>
+                                )}
+                            </CardContent>
+                        </Card>
                     </div>
 
                     {/* Player Statistics Accordion */}
@@ -222,41 +247,43 @@ export default function StatisticsSection({
                                 <CardDescription>Top players ranked by rating</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Rank</TableHead>
-                                            <TableHead>Player</TableHead>
-                                            <TableHead>Rating</TableHead>
-                                            <TableHead className="hidden sm:table-cell">W/D/L</TableHead>
-                                            <TableHead className="text-right">Win Rate</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {Object.entries(groupStats.playerStats)
-                                            .sort((a, b) => b[1].rating - a[1].rating)
-                                            .slice(0, 5)
-                                            .map(([playerId, player], index) => (
-                                                <TableRow key={playerId}>
-                                                    <TableCell className="font-medium">{index + 1}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center">
-                                                            <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                                                            <span>{player.displayName}</span>
-                                                            {player.isGuest && <span className="ml-1 text-xs text-muted-foreground">(Guest)</span>}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>{player.rating}</TableCell>
-                                                    <TableCell className="hidden sm:table-cell">
-                                                        {player.wins}/{player.draws}/{player.losses}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        {Math.round(player.winRate * 100)}%
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                    </TableBody>
-                                </Table>
+                                <div className="overflow-x-auto -mx-4 sm:mx-0">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-[60px]">#</TableHead>
+                                                <TableHead>Player</TableHead>
+                                                <TableHead className="w-[80px] text-right">Rating</TableHead>
+                                                <TableHead className="hidden md:table-cell w-[100px] text-center">W/D/L</TableHead>
+                                                <TableHead className="w-[80px] text-right">Win %</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {Object.entries(groupStats.playerStats)
+                                                .sort((a, b) => b[1].rating - a[1].rating)
+                                                .slice(0, 5)
+                                                .map(([playerId, player], index) => (
+                                                    <TableRow key={playerId}>
+                                                        <TableCell className="font-medium">{index + 1}</TableCell>
+                                                        <TableCell className="max-w-[120px] sm:max-w-none truncate">
+                                                            <div className="flex items-center">
+                                                                <User className="h-4 w-4 mr-2 flex-shrink-0 text-muted-foreground" />
+                                                                <span className="truncate">{player.displayName}</span>
+                                                                {player.isGuest && <span className="ml-1 text-xs text-muted-foreground flex-shrink-0">(G)</span>}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">{player.rating}</TableCell>
+                                                        <TableCell className="hidden md:table-cell text-center">
+                                                            {player.wins}/{player.draws}/{player.losses}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {Math.round(player.winRate * 100)}%
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </CardContent>
                         </Card>
                         
@@ -268,7 +295,7 @@ export default function StatisticsSection({
                                         <AccordionTrigger>
                                             <div className="flex items-center justify-between w-full">
                                                 <div className="flex items-center">
-                                                    <span className="mr-2">{player.displayName}</span>
+                                                    <span className="mr-2 truncate max-w-[150px] sm:max-w-none">{player.displayName}</span>
                                                     {player.isGuest && <span className="text-xs text-muted-foreground">(Guest)</span>}
                                                 </div>
                                                 <div className="flex items-center gap-4">
@@ -338,7 +365,7 @@ export default function StatisticsSection({
                                                 {player.teamPartners && Object.keys(player.teamPartners).length > 0 && (
                                                     <div className="col-span-1 sm:col-span-2 mt-2">
                                                         <h4 className="font-semibold mb-2">Team Partnerships (2v2)</h4>
-                                                        <div className="overflow-x-auto">
+                                                        <div className="overflow-x-auto -mx-2">
                                                             <Table>
                                                                 <TableHeader>
                                                                     <TableRow>
@@ -353,7 +380,7 @@ export default function StatisticsSection({
                                                                         .sort((a, b) => b[1].matches - a[1].matches)
                                                                         .map(([partnerId, partnerStats]) => (
                                                                             <TableRow key={partnerId}>
-                                                                                <TableCell>{partnerStats.displayName}</TableCell>
+                                                                                <TableCell className="max-w-[120px] truncate">{partnerStats.displayName}</TableCell>
                                                                                 <TableCell className="text-center">{partnerStats.matches}</TableCell>
                                                                                 <TableCell className="text-center">{partnerStats.wins}</TableCell>
                                                                                 <TableCell className="text-right">
@@ -412,31 +439,6 @@ export default function StatisticsSection({
                             ))}
                         </div>
                     </div>
-
-                    {/* Recent Matches */}
-                    {groupStats.recentMatches && groupStats.recentMatches.length > 0 && (
-                        <div>
-                            <h3 className="text-xl font-semibold mb-4">Recent Matches</h3>
-                            <div className="space-y-2">
-                                {groupStats.recentMatches.map((match) => (
-                                    <div key={match.id} className="p-3 border rounded flex justify-between items-center">
-                                        <div className="flex items-center gap-2">
-                                            <Clock className="h-4 w-4 text-muted-foreground" />
-                                            <span className="text-sm">{formatPlayedAt(match.playedAt)}</span>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium">
-                                                {match.team1Score} - {match.team2Score}
-                                            </span>
-                                            <span className="text-xs px-2 py-1 rounded-full bg-secondary">
-                                                {match.gameType}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </>
             )}
         </div>
