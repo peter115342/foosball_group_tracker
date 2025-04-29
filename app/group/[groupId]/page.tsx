@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/context/authContext';
+import { useAuth } from '@/context/AuthContext';
 import { db } from '@/lib/firebase/config';
 import {
     doc,
@@ -13,25 +13,21 @@ import {
     onSnapshot,
     DocumentData,
     QuerySnapshot,
-    deleteDoc,
     Timestamp,
     getDoc,
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+} from '@/components/ui/tabs';
 import { toast } from "sonner";
-import MatchFormDialog from '@/components/matches/MatchFormDialog';
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+import MatchesSection from '@/components/groups/detail/MatchesSection';
+import StatisticsSection from '@/components/groups/detail/StatisticsSection';
 
 interface GroupData extends DocumentData {
     id: string;
@@ -87,6 +83,81 @@ interface MatchData extends DocumentData {
     winner: 'team1' | 'team2' | 'draw';
 }
 
+interface PlayerStats {
+    displayName: string;
+    isGuest: boolean;
+    totalMatches: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    winRate: number;
+    rating: number;
+    streak: number;
+    currentStreak: number;
+    longestWinStreak: number;
+    longestLossStreak: number;
+    goalsScored: number;
+    goalsConceded: number;
+    averageGoalsScored: number;
+    averageGoalsConceded: number;
+    teamPartners: {
+        [partnerId: string]: {
+            displayName: string;
+            matches: number;
+            wins: number;
+            winRate: number;
+        }
+    };
+    lastPlayed: Timestamp | { seconds: number; nanoseconds: number };
+}
+
+interface TeamColorStats {
+    totalMatches: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    winRate: number;
+    goalsScored: number;
+    goalsConceded: number;
+}
+
+interface RecentMatch {
+    id: string;
+    playedAt: Timestamp | { seconds: number; nanoseconds: number };
+    team1Score: number;
+    team2Score: number;
+    gameType: '1v1' | '2v2';
+    winner: 'team1' | 'team2' | 'draw';
+}
+
+interface GroupStats extends DocumentData {
+    groupId: string;
+    lastUpdated: Timestamp;
+    playerStats: {
+        [playerId: string]: PlayerStats;
+    };
+    teamColorStats: {
+        [colorCode: string]: TeamColorStats;
+    };
+    totalMatches: number;
+    matchesByGameType: {
+        '1v1': number;
+        '2v2': number;
+    };
+    highestScore: {
+        score: number;
+        matchId: string;
+        player: string;
+        date: Timestamp | { seconds: number; nanoseconds: number };
+    };
+    longestWinStreak: {
+        player: string;
+        count: number;
+        playerName: string;
+    };
+    recentMatches: RecentMatch[];
+}
+
 const formatAdminDisplayName = (fullName: string | null | undefined): string => {
     if (!fullName) return 'N/A';
     const parts = fullName.trim().split(' ');
@@ -94,50 +165,6 @@ const formatAdminDisplayName = (fullName: string | null | undefined): string => 
     const firstParts = parts.slice(0, -1).join(' ');
     const lastInitial = parts[parts.length - 1].charAt(0);
     return `${firstParts} ${lastInitial}.`;
-};
-
-const formatPosition = (position?: string, gameType?: string): string => {
-    if (!position || gameType === '1v1') return '';
-    switch (position) {
-        case 'attack': return ' (Attack)';
-        case 'defense': return ' (Defense)';
-        default: return '';
-    }
-};
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const formatPlayedAt = (timestamp: any) => {
-  try {
-    if (timestamp && typeof timestamp.toDate === 'function') {
-      return timestamp.toDate().toLocaleDateString(undefined, { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-    } 
-    else if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
-      const date = new Date(timestamp.seconds * 1000);
-      return date.toLocaleDateString(undefined, { 
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-    }
-    else if (timestamp && typeof timestamp === 'string') {
-      const date = new Date(timestamp);
-      if (!isNaN(date.getTime())) {
-        return date.toLocaleDateString(undefined, { 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric'
-        });
-      }
-    }
-    return 'Invalid date';
-  } catch (err) {
-    console.error("Error formatting date:", err, timestamp);
-    return 'Date format error';
-  }
 };
 
 const GUEST_PREFIX = 'guest_';
@@ -152,14 +179,11 @@ export default function GroupDetailPage() {
     const [members, setMembers] = useState<Member[]>([]);
     const [selectablePlayers, setSelectablePlayers] = useState<SelectablePlayer[]>([]);
     const [matches, setMatches] = useState<MatchData[]>([]);
+    const [groupStats, setGroupStats] = useState<GroupStats | null>(null);
     const [groupLoading, setGroupLoading] = useState(true);
     const [matchesLoading, setMatchesLoading] = useState(true);
+    const [statsLoading, setStatsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const [isMatchDialogOpen, setIsMatchDialogOpen] = useState(false);
-    const [editingMatch, setEditingMatch] = useState<MatchData | null>(null);
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [matchToDelete, setMatchToDelete] = useState<string | null>(null);
     const [matchRateLimit, setMatchRateLimit] = useState<{
         lastMatchCreation: Date | null;
         cooldownRemaining: number;
@@ -203,7 +227,6 @@ export default function GroupDetailPage() {
     };
 
     const handleMatchDialogOpenChange = (open: boolean) => {
-        setIsMatchDialogOpen(open);
         if (!open) {
             fetchMatchRateLimit();
         }
@@ -346,40 +369,38 @@ export default function GroupDetailPage() {
         return () => unsubscribe();
     }, [groupId, group, error, groupLoading]);
 
-    const handleOpenAddMatchDialog = () => {
-        setEditingMatch(null);
-        setIsMatchDialogOpen(true);
-    };
-
-    const handleOpenEditMatchDialog = (match: MatchData) => {
-        setEditingMatch(match);
-        setIsMatchDialogOpen(true);
-    };
-
-    const handleOpenDeleteDialog = (matchId: string) => {
-        setMatchToDelete(matchId);
-        setIsDeleteDialogOpen(true);
-    };
-
-    const handleConfirmDelete = async () => {
-        if (!matchToDelete || !canEditMatches) {
-             toast.error("Unauthorized or match not selected.");
-             setIsDeleteDialogOpen(false);
-             setMatchToDelete(null);
-             return;
+    // Fetch group stats
+    useEffect(() => {
+        if (!groupId || !group) {
+            setGroupStats(null);
+            setStatsLoading(groupLoading);
+            return;
         }
-        try {
-            await deleteDoc(doc(db, "matches", matchToDelete));
-            toast.success("Match deleted successfully.");
-            setMatchToDelete(null);
-            setIsDeleteDialogOpen(false);
-        } catch (err) {
-            console.error("Error deleting match:", err);
-            toast.error("Error deleting match", { description: (err as Error).message });
-            setMatchToDelete(null);
-            setIsDeleteDialogOpen(false);
+
+        if (groupLoading || error) {
+            setGroupStats(null);
+            setStatsLoading(false);
+            return;
         }
-    };
+
+        setStatsLoading(true);
+        const statsRef = doc(db, "groupStats", groupId);
+
+        const unsubscribe = onSnapshot(statsRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setGroupStats({ ...docSnap.data() } as GroupStats);
+            } else {
+                setGroupStats(null);
+            }
+            setStatsLoading(false);
+        }, (err) => {
+            console.error("Error fetching group statistics:", err);
+            setStatsLoading(false);
+            toast.error("Error fetching statistics", { description: err.message });
+        });
+
+        return () => unsubscribe();
+    }, [groupId, group, error, groupLoading]);
 
     if (authLoading || groupLoading) {
         return (
@@ -451,170 +472,37 @@ export default function GroupDetailPage() {
                 </div>
             </header>
 
-            <main>
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-semibold">Match History</h2>
-                    {canEditMatches && (
-                        <Button
-                            onClick={handleOpenAddMatchDialog}
-                            disabled={selectablePlayers.length < 1 || !! (matchRateLimit && matchRateLimit.cooldownRemaining > 0)}
-                            size="sm"
-                        >
-                            {matchRateLimit && matchRateLimit.cooldownRemaining > 0 
-                                ? `Add Match (${matchRateLimit.cooldownRemaining}s)` 
-                                : 'Add Match'}
-                        </Button>
-                    )}
-                </div>
+            <Tabs defaultValue="matches" className="w-full">
+                <TabsList className="mb-4">
+                    <TabsTrigger value="matches">Matches</TabsTrigger>
+                    <TabsTrigger value="statistics">Statistics</TabsTrigger>
+                </TabsList>
 
-                <div className="space-y-4">
-                    {matchesLoading ? (
-                        <>
-                            <Skeleton className="h-24 w-full rounded-lg" />
-                            <Skeleton className="h-24 w-full rounded-lg" />
-                            <Skeleton className="h-24 w-full rounded-lg" />
-                        </>
-                    ) : matches.length > 0 ? (
-                        matches.map((match) => (
-                            <div key={match.id} className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between sm:items-start gap-4 hover:shadow-sm transition-shadow duration-150">
-                                <div className="flex-grow">
-                                    <div className="flex items-center gap-x-3 gap-y-1 mb-2 flex-wrap">
-                                        <div className="flex items-center gap-1.5">
-                                            <span
-                                                className="inline-block h-5 w-5 rounded-full border-2 border-black dark:border-white"
-                                                style={{ backgroundColor: match.team1?.color }}
-                                                aria-hidden="true"
-                                            ></span>
-                                            <span className="font-semibold text-xl">
-                                                {match.team1?.score ?? '?'}
-                                            </span>
-                                        </div>
+                {/* Matches Tab */}
+                <TabsContent value="matches">
+                    <MatchesSection
+                        matches={matches}
+                        matchesLoading={matchesLoading}
+                        group={group}
+                        groupId={groupId}
+                        selectablePlayers={selectablePlayers}
+                        members={members}
+                        user={user}
+                        canEditMatches={canEditMatches}
+                        matchRateLimit={matchRateLimit}
+                        onMatchDialogOpenChange={handleMatchDialogOpenChange}
+                    />
+                </TabsContent>
 
-                                        <span className="text-muted-foreground text-lg">vs</span>
-
-                                        <div className="flex items-center gap-1.5">
-                                            <span
-                                                className="inline-block h-5 w-5 rounded-full border-2 border-black dark:border-white"
-                                                style={{ backgroundColor: match.team2?.color }}
-                                                aria-hidden="true"
-                                            ></span>
-                                            <span className="font-semibold text-xl">
-                                                {match.team2?.score ?? '?'}
-                                            </span>
-                                        </div>
-
-                                        <span className="text-sm px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground ml-1">{match.gameType}</span>
-                                        {match.winner && (
-                                            <span className={`text-sm px-2.5 py-1 rounded-full ml-1 font-medium ${
-                                                match.winner === 'team1' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' :
-                                                match.winner === 'team2' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
-                                                'bg-gray-100 text-gray-800 dark:bg-gray-700/50 dark:text-gray-300'
-                                            }`}>
-                                                {match.winner === 'team1' ? 'Team 1 Wins' : match.winner === 'team2' ? 'Team 2 Wins' : 'Draw'}
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className="text-sm text-muted-foreground mb-2 space-y-1">
-                                        <div className="flex items-start">
-                                            <span className="inline-flex items-center gap-1.5 mr-2 min-w-[70px]">
-                                                <span
-                                                    className="inline-block h-4 w-4 rounded-full border-2 border-black dark:border-white"
-                                                    style={{ backgroundColor: match.team1?.color }}
-                                                    aria-hidden="true"
-                                                ></span>
-                                                <span className="font-medium">Team 1:</span>
-                                            </span>
-                                            <span>
-                                                {match.team1?.players?.map(p =>
-                                                    `${p.displayName}${formatPosition(p.position, match.gameType)}`
-                                                ).join(' & ') || 'N/A'}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-start">
-                                            <span className="inline-flex items-center gap-1.5 mr-2 min-w-[70px]">
-                                                <span
-                                                    className="inline-block h-4 w-4 rounded-full border-2 border-black dark:border-white"
-                                                    style={{ backgroundColor: match.team2?.color }}
-                                                    aria-hidden="true"
-                                                ></span>
-                                                <span className="font-medium">Team 2:</span>
-                                            </span>
-                                            <span>
-                                                {match.team2?.players?.map(p =>
-                                                    `${p.displayName}${formatPosition(p.position, match.gameType)}`
-                                                ).join(' & ') || 'N/A'}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <p className="text-xs text-muted-foreground">
-                                        Played: {formatPlayedAt(match.playedAt)}
-                                    </p>
-                                </div>
-
-                                {canEditMatches && (
-                                    <div className="flex gap-2 flex-shrink-0 sm:pt-1">
-                                        <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleOpenEditMatchDialog(match)}>
-                                            <Edit className="h-5 w-5" />
-                                            <span className="sr-only">Edit Match</span>
-                                        </Button>
-                                        <Button variant="destructive" size="icon" className="h-9 w-9" onClick={() => handleOpenDeleteDialog(match.id)}>
-                                            <Trash2 className="h-5 w-5" />
-                                            <span className="sr-only">Delete Match</span>
-                                        </Button>
-                                    </div>
-                                )}
-                            </div>
-                        ))
-                    ) : (
-                        <div className="text-center py-12 border rounded-lg bg-muted/40">
-                            <p className="text-muted-foreground mb-3">No matches have been recorded yet.</p>
-                            {canEditMatches && (
-                                <Button
-                                    onClick={handleOpenAddMatchDialog}
-                                    disabled={selectablePlayers.length < 1 ||  !! (matchRateLimit && matchRateLimit.cooldownRemaining > 0)}
-                                    size="sm"
-                                >
-                                    {matchRateLimit && matchRateLimit.cooldownRemaining > 0 
-                                        ? `Record First Match (${matchRateLimit.cooldownRemaining}s)` 
-                                        : 'Record First Match'}
-                                </Button>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </main>
-
-            {group && (
-                <MatchFormDialog
-                    isOpen={isMatchDialogOpen}
-                    onOpenChange={handleMatchDialogOpenChange}
-                    editingMatch={editingMatch}
-                    group={group}
-                    groupId={groupId}
-                    selectablePlayers={selectablePlayers}
-                    members={members}
-                    user={user || { uid: '', displayName: null }}
-                />
-            )}
-
-            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete the selected match record.
-                    </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setMatchToDelete(null)}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        Delete Match
-                    </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                {/* Statistics Tab */}
+                <TabsContent value="statistics">
+                    <StatisticsSection
+                        groupStats={groupStats}
+                        statsLoading={statsLoading}
+                        group={group}
+                    />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }
