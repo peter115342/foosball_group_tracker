@@ -38,9 +38,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           const ratelimitDoc = await getDoc(ratelimitRef);
           if (!ratelimitDoc.exists()) {
+
+            const pastTimestamp = new Date();
+            pastTimestamp.setMinutes(pastTimestamp.getMinutes() - 10);
+            
             await setDoc(ratelimitRef, {
               groupCount: 0,
-              lastGroupCreation: serverTimestamp()
+              lastGroupCreation: pastTimestamp
             });
           }
           
