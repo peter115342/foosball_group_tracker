@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
-import { addDoc, collection, doc, serverTimestamp, Timestamp, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, serverTimestamp, Timestamp, updateDoc, getDoc} from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { toast } from "sonner";
 
@@ -139,13 +139,13 @@ export default function MatchFormDialog({
                     
                     if (ratelimitDoc.exists()) {
                         const data = ratelimitDoc.data();
-                        const lastCreation = data.lastMatchCreation ? 
+                        const lastCreation = data.lastMatchCreation ?
                             data.lastMatchCreation.toDate() : null;
                         
                         let cooldownRemaining = 0;
                         if (lastCreation) {
-                            const cooldownEnd = new Date(lastCreation.getTime() + (10 * 1000)); // 10 seconds
-                            cooldownRemaining = Math.max(0, 
+                            const cooldownEnd = new Date(lastCreation.getTime() + (10 * 1000));
+                            cooldownRemaining = Math.max(0,
                                 Math.floor((cooldownEnd.getTime() - Date.now()) / 1000));
                         }
                         
@@ -295,8 +295,8 @@ export default function MatchFormDialog({
         setIsSubmittingMatch(true);
 
         if (rateLimit && rateLimit.cooldownRemaining > 0 && !editingMatch) {
-            toast.error("Rate limit cooldown active", { 
-                description: `Please wait ${rateLimit.cooldownRemaining}s before creating another match.` 
+            toast.error("Rate limit cooldown active", {
+                description: `Please wait ${rateLimit.cooldownRemaining}s before creating another match.`
             });
             setIsSubmittingMatch(false);
             return;
@@ -475,6 +475,7 @@ export default function MatchFormDialog({
                     }))
                 },
                 winner: winner || 'draw',
+                createdBy: user.uid,
             };
 
             const cleanedMatchData = cleanObject(matchDocData);
@@ -492,21 +493,6 @@ export default function MatchFormDialog({
                     createdAt: serverTimestamp(),
                 });
                 
-                if (user?.uid) {
-                    const ratelimitRef = doc(db, 'matchRatelimits', user.uid);
-                    const ratelimitDoc = await getDoc(ratelimitRef);
-                    
-                    if (ratelimitDoc.exists()) {
-                        await updateDoc(ratelimitRef, {
-                            lastMatchCreation: serverTimestamp()
-                        });
-                    } else {
-                        await setDoc(ratelimitRef, {
-                            lastMatchCreation: serverTimestamp()
-                        });
-                    }
-                }
-                
                 toast.success("Match added successfully!");
             }
 
@@ -515,10 +501,10 @@ export default function MatchFormDialog({
 
         } catch (err) {
             console.error("Error saving match:", err);
-            if (err instanceof Error && 
-                err.message.includes("permission") && 
+            if (err instanceof Error &&
+                err.message.includes("permission") &&
                 err.message.includes("insufficient")) {
-                toast.error("Rate limit reached", { 
+                toast.error("Rate limit reached", {
                     description: "You must wait 10 seconds between creating matches."
                 });
             } else {
@@ -879,16 +865,16 @@ export default function MatchFormDialog({
                             <DialogClose asChild>
                                 <Button type="button" variant="outline" disabled={isSubmittingMatch} className="w-full sm:w-auto">Cancel</Button>
                             </DialogClose>
-                            <Button 
-                                type="submit" 
+                            <Button
+                                type="submit"
                                 disabled={isSubmittingMatch || (!editingMatch && (rateLimit?.cooldownRemaining || 0) > 0)}
                                 className="w-full sm:w-auto"
                             >
-                                {isSubmittingMatch 
-                                  ? (editingMatch ? 'Saving...' : 'Adding...') 
-                                  : (!editingMatch && (rateLimit?.cooldownRemaining || 0) > 0)
-                                    ? `Add Match (${rateLimit?.cooldownRemaining}s)` 
-                                    : (editingMatch ? 'Save Changes' : 'Add Match')}
+                                {isSubmittingMatch
+                                    ? (editingMatch ? 'Saving...' : 'Adding...')
+                                    : (!editingMatch && (rateLimit?.cooldownRemaining || 0) > 0)
+                                        ? `Add Match (${rateLimit?.cooldownRemaining}s)`
+                                        : (editingMatch ? 'Save Changes' : 'Add Match')}
                             </Button>
                         </DialogFooter>
                     </form>

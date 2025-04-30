@@ -25,7 +25,7 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { db } from '@/lib/firebase/config';
-import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc, increment, getDoc, updateDoc, orderBy, limit, getDocs } from "firebase/firestore";
+import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData, doc, deleteDoc, getDoc, orderBy, limit, getDocs } from "firebase/firestore";
 import {Trash2,Users, Copy, Edit } from 'lucide-react';
 import { toast } from "sonner";
 import GroupFormDialog from '@/components/groups/GroupFormDialog';
@@ -241,6 +241,36 @@ export default function DashboardPage() {
     }
   }, [user, loading, rateLimit?.cooldownRemaining]);
 
+  const refreshRateLimits = async () => {
+    if (user) {
+      try {
+        const ratelimitRef = doc(db, 'ratelimits', user.uid);
+        const ratelimitDoc = await getDoc(ratelimitRef);
+
+        if (ratelimitDoc.exists()) {
+          const data = ratelimitDoc.data();
+          const lastCreation = data.lastGroupCreation ?
+            data.lastGroupCreation.toDate() : null;
+
+          let cooldownRemaining = 0;
+          if (lastCreation) {
+            const cooldownEnd = new Date(lastCreation.getTime() + (60 * 1000)); // 1 min
+            cooldownRemaining = Math.max(0,
+              Math.floor((cooldownEnd.getTime() - Date.now()) / 1000));
+          }
+
+          setRateLimit({
+            groupCount: data.groupCount || 0,
+            lastGroupCreation: lastCreation,
+            cooldownRemaining
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching rate limits:", error);
+      }
+    }
+  };
+
   const resetAllDialogStates = () => {
     setOpenDropdownId(null);
     setGroupToManage(null);
@@ -264,11 +294,6 @@ export default function DashboardPage() {
       try {
           const groupRef = doc(db, "groups", groupToDelete.id);
           await deleteDoc(groupRef);
-
-          const ratelimitRef = doc(db, 'ratelimits', user.uid);
-          await updateDoc(ratelimitRef, {
-            groupCount: increment(-1)
-          });
 
           toast.success(`Group "${groupToDelete.name}" deleted successfully.`);
           resetAllDialogStates();
@@ -462,6 +487,7 @@ export default function DashboardPage() {
             isOpen={isCreateGroupOpen}
             onOpenChange={setIsCreateGroupOpen}
             user={user}
+            onDialogClose={refreshRateLimits}
           />
           <JoinGroupForm
             isOpen={isJoinGroupOpen}

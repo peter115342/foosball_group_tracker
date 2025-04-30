@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useForm, SubmitHandler } from "react-hook-form";
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from '@/lib/firebase/config';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
@@ -41,6 +41,7 @@ interface GroupFormDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   user: User;
+  onDialogClose?: () => void;
 }
 
 const predefinedTeamColors = [
@@ -77,7 +78,8 @@ const generateInviteCode = (): string => {
 export default function GroupFormDialog({
   isOpen,
   onOpenChange,
-  user
+  user,
+  onDialogClose
 }: GroupFormDialogProps) {
   const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
   const [createGuestNameInput, setCreateGuestNameInput] = useState('');
@@ -125,10 +127,8 @@ export default function GroupFormDialog({
             
             setRateLimit({ remaining: groupsRemaining, nextAvailable });
           } else {
-            // Initialize without setting a timestamp
             await setDoc(ratelimitRef, {
               groupCount: 0
-              // Don't set lastGroupCreation here
             });
             setRateLimit({ remaining: 20, nextAvailable: null });
           }
@@ -234,13 +234,10 @@ export default function GroupFormDialog({
         },
         groupColor: selectedGroupColor,
       };
+      
       await addDoc(groupsCollectionRef, newGroupData);
       
-      const ratelimitRef = doc(db, 'ratelimits', user.uid);
-      await updateDoc(ratelimitRef, {
-        groupCount: increment(1),
-        lastGroupCreation: serverTimestamp()
-      });
+ 
       
       toast.success("Group created successfully!");
 
@@ -270,6 +267,9 @@ export default function GroupFormDialog({
         reset();
         setCreateGuestMembers([]);
         setCreateGuestNameInput('');
+        if (onDialogClose) {
+          onDialogClose();
+        }
       }
       onOpenChange(open);
     }}>
@@ -287,7 +287,7 @@ export default function GroupFormDialog({
             
             {rateLimit.nextAvailable && (
               <div className="mt-2">
-                Cooldown active. Button will be disabled until the cooldown ends.
+                Cooldown active.
               </div>
             )}
           </div>
@@ -415,7 +415,7 @@ export default function GroupFormDialog({
               <Button 
                 type="button" 
                 variant="outline" 
-                disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
+                disabled={isSubmittingGroup}
               >
                 Cancel
               </Button>
@@ -424,7 +424,11 @@ export default function GroupFormDialog({
               type="submit" 
               disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
             >
-              {isSubmittingGroup ? 'Creating...' : 'Create Group'}
+              {isSubmittingGroup 
+                ? 'Creating...' 
+                : (rateLimit?.nextAvailable 
+                    ? `Create Group (${Math.ceil((rateLimit.nextAvailable.getTime() - Date.now()) / 1000)}s)` 
+                    : 'Create Group')}
             </Button>
           </DialogFooter>
         </form>
@@ -432,4 +436,3 @@ export default function GroupFormDialog({
     </Dialog>
   );
 }
-
