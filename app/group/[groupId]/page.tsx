@@ -155,6 +155,10 @@ interface GroupStats extends DocumentData {
         count: number;
         playerName: string;
     };
+    mostMatchesInOneDay: {
+        date: string;
+        count: number;
+    };
     recentMatches: RecentMatch[];
 }
 
@@ -369,7 +373,6 @@ export default function GroupDetailPage() {
         return () => unsubscribe();
     }, [groupId, group, error, groupLoading]);
 
-    // Fetch group stats
     useEffect(() => {
         if (!groupId || !group) {
             setGroupStats(null);
@@ -478,7 +481,6 @@ export default function GroupDetailPage() {
                     <TabsTrigger value="statistics" className="px-10 py-3 text-lg">Statistics</TabsTrigger>
                 </TabsList>
 
-                {/* Matches Tab */}
                 <TabsContent value="matches">
                     <MatchesSection
                         matches={matches}
@@ -494,7 +496,6 @@ export default function GroupDetailPage() {
                     />
                 </TabsContent>
 
-                {/* Statistics Tab */}
                 <TabsContent value="statistics">
                     <StatisticsSection
                         groupStats={groupStats}
