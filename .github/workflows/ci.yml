@@ -25,7 +25,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install ruff
+          uv pip install --system ruff
 
       - name: Run Ruff check
         run: |
@@ -50,8 +50,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install pytest pytest-mock
-          uv pip install -r functions/requirements.txt
+          uv pip install --system pytest pytest-mock
+          uv pip install --system -r functions/requirements.txt
 
       - name: Run tests
         run: |
