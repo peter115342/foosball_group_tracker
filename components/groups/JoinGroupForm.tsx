@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { doc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { User } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/lib/firebase/config';
 import {
   Dialog,
   DialogContent,
@@ -24,10 +24,13 @@ interface JoinGroupFormProps {
   user: User;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export default function JoinGroupForm({ isOpen, onOpenChange, user }: JoinGroupFormProps) {
   const [inviteCode, setInviteCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const router = useRouter();
+  
+  const joinGroupFunction = httpsCallable(functions, 'join_group_fn');
 
   const handleJoinGroup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,34 +41,20 @@ export default function JoinGroupForm({ isOpen, onOpenChange, user }: JoinGroupF
 
     setIsJoining(true);
     try {
-      const groupsRef = collection(db, 'groups');
-      const q = query(groupsRef, where('inviteCode', '==', inviteCode.trim()));
-      const querySnapshot = await getDocs(q);
+      const result = await joinGroupFunction({ inviteCode: inviteCode.trim() });
+      const data = result.data as { 
+        success: boolean, 
+        message: string, 
+        groupId: string, 
+        groupName: string,
+        alreadyMember: boolean
+      };
       
-      if (querySnapshot.empty) {
-        toast.error('Invalid invite code. Please check and try again.');
-        return;
+      if (data.success) {
+        toast.success(data.message);
+        onOpenChange(false);
+        router.push(`/group/${data.groupId}`);
       }
-
-      const groupDoc = querySnapshot.docs[0];
-      const groupData = groupDoc.data();
-      
-      if (groupData.members && groupData.members[user.uid]) {
-        toast.info('You are already a member of this group');
-        router.push(`/group/${groupDoc.id}`);
-        return;
-      }
-      
-      await updateDoc(doc(db, 'groups', groupDoc.id), {
-        [`members.${user.uid}`]: {
-          name: user.displayName || 'User',
-          role: 'viewer'
-        }
-      });
-      
-      toast.success(`You've successfully joined the group: ${groupData.name}`);
-      onOpenChange(false);
-      router.push(`/group/${groupDoc.id}`);
     } catch (error) {
       console.error('Error joining group:', error);
       toast.error('Failed to join group');
