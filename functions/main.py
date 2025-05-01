@@ -1,7 +1,7 @@
 from firebase_admin import initialize_app
 from firebase_functions import https_fn
 from guest_migration import migrate_guest_to_member
-from match_cleanup import on_group_deleted  # noqa: F401
+from match_cleanup import on_group_deleted_cleanup_matches  # noqa: F401
 from match_stats import on_group_update, on_match_update  # noqa: F401
 from rate_limiting import (
     on_group_created,  # noqa: F401
