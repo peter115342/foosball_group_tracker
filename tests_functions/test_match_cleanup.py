@@ -5,7 +5,7 @@ import firebase_admin
 import pytest
 from firebase_admin import firestore
 
-from functions.match_cleanup import on_group_deleted
+from functions.match_cleanup import on_group_deleted_cleanup_matches
 
 
 @patch("firebase_admin.firestore.client")
