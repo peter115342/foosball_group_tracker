@@ -40,3 +40,12 @@ def mock_callable_request(mock_auth):
     mock_request = MagicMock()
     mock_request.auth = mock_auth
     return mock_request
+
+
+@pytest.fixture
+def mock_firestore_event():
+    """Mock Firestore event with data and params"""
+    mock_event = MagicMock()
+    mock_event.data = MagicMock()
+    mock_event.params = {"groupId": "test-group-id"}
+    return mock_event

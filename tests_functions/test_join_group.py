@@ -136,7 +136,7 @@ def test_join_group_invalid_code(mock_client, mock_auth, valid_join_data):
     with pytest.raises(https_fn.HttpsError) as excinfo:
         join_group_with_code(valid_join_data, mock_auth)
 
-    assert "Invalid invite code" in str(excinfo.value)
+    assert "Invalid invite code" in excinfo.value.message
     assert excinfo.value.code == https_fn.FunctionsErrorCode.INVALID_ARGUMENT
 
 
@@ -146,7 +146,7 @@ def test_join_group_no_auth(mock_client, valid_join_data):
     with pytest.raises(https_fn.HttpsError) as excinfo:
         join_group_with_code(valid_join_data, None)
 
-    assert "Authentication required" in str(excinfo.value)
+    assert "Authentication required" in excinfo.value.message
     assert excinfo.value.code == https_fn.FunctionsErrorCode.INVALID_ARGUMENT
 
     mock_client.assert_not_called()
@@ -158,7 +158,7 @@ def test_join_group_missing_invite_code(mock_client, mock_auth):
     with pytest.raises(https_fn.HttpsError) as excinfo:
         join_group_with_code({}, mock_auth)
 
-    assert "Missing required field: inviteCode" in str(excinfo.value)
+    assert "Missing required field: inviteCode" in excinfo.value.message
     assert excinfo.value.code == https_fn.FunctionsErrorCode.INVALID_ARGUMENT
 
     mock_client.assert_not_called()
@@ -173,4 +173,4 @@ def test_join_group_firestore_error(mock_client, mock_auth, valid_join_data):
         join_group_with_code(valid_join_data, mock_auth)
 
     assert excinfo.value.code == https_fn.FunctionsErrorCode.INTERNAL
-    assert "Internal server error" in str(excinfo.value)
+    assert "Internal server error" in excinfo.value.message
