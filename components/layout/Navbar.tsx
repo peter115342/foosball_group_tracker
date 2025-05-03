@@ -34,11 +34,9 @@ export default function Navbar() {
     setIsDarkMode(!isDarkMode);
   };
   
-  // Determine what to display (name or email)
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || 'User';
   const userEmail = user?.email || '';
   
-  // Get initials for avatar
   const getInitials = () => {
     if (user?.displayName) {
       return user.displayName

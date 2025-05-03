@@ -12,7 +12,7 @@ from functions.join_group import join_group_with_code
 @pytest.fixture
 def valid_join_data():
     """Create valid join group data for testing"""
-    return {"inviteCode": "ABC123"}
+    return {"inviteCode": "ABC12345"}
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def mock_group_data():
     return {
         "name": "Test Group",
         "adminUid": "admin-uid",
-        "inviteCode": "ABC123",
+        "inviteCode": "ABC12345",
         "members": {
             "admin-uid": {"role": "admin", "name": "Admin User"},
             "member-uid": {"role": "member", "name": "Member User"},
@@ -66,7 +66,7 @@ def test_join_group_success(mock_client, mock_auth, valid_join_data, mock_group_
     mock_groups_ref.where.assert_called_once()
     filter_args = mock_groups_ref.where.call_args[1]
     assert filter_args["filter"].field_path == "inviteCode"
-    assert filter_args["filter"].value == "ABC123"
+    assert filter_args["filter"].value == "ABC12345"
 
     mock_group_ref.update.assert_called_once()
     update_args = mock_group_ref.update.call_args[0][0]
@@ -121,8 +121,10 @@ def test_join_group_already_member(
 
 
 @patch("firebase_admin.firestore.client")
-def test_join_group_invalid_code(mock_client, mock_auth, valid_join_data):
+def test_join_group_invalid_code(mock_client, mock_auth):
     """Test joining a group with an invalid invite code"""
+    invalid_data = {"inviteCode": "ABCD1234"}
+
     mock_query = MagicMock()
     mock_query.stream.return_value = []
 
@@ -134,9 +136,9 @@ def test_join_group_invalid_code(mock_client, mock_auth, valid_join_data):
     mock_client.return_value = mock_client_instance
 
     with pytest.raises(https_fn.HttpsError) as excinfo:
-        join_group_with_code(valid_join_data, mock_auth)
+        join_group_with_code(invalid_data, mock_auth)
 
-    assert "Invalid invite code" in excinfo.value.message
+    assert "No matching group found" in excinfo.value.message
     assert excinfo.value.code == https_fn.FunctionsErrorCode.INVALID_ARGUMENT
 
 
@@ -165,12 +167,14 @@ def test_join_group_missing_invite_code(mock_client, mock_auth):
 
 
 @patch("firebase_admin.firestore.client")
-def test_join_group_firestore_error(mock_client, mock_auth, valid_join_data):
+def test_join_group_firestore_error(mock_client, mock_auth):
     """Test handling a Firestore error during group join"""
+    valid_data = {"inviteCode": "ABCD1234"}
+
     mock_client.side_effect = Exception("Database connection error")
 
     with pytest.raises(https_fn.HttpsError) as excinfo:
-        join_group_with_code(valid_join_data, mock_auth)
+        join_group_with_code(valid_data, mock_auth)
 
     assert excinfo.value.code == https_fn.FunctionsErrorCode.INTERNAL
     assert "Internal server error" in excinfo.value.message
