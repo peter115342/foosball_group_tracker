@@ -5,8 +5,18 @@ import Image from 'next/image';
 import { useAuth } from '@/context/authContext';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
-import { MoonIcon, SunIcon, LogOutIcon } from 'lucide-react';
+import { MoonIcon, SunIcon, LogOutIcon, MenuIcon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { 
+  Drawer, 
+  DrawerContent, 
+  DrawerHeader, 
+  DrawerTitle,
+  DrawerTrigger,
+  DrawerFooter,
+  DrawerClose 
+} from "@/components/ui/drawer";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -22,6 +32,21 @@ export default function Navbar() {
   const toggleDarkMode = () => {
     document.documentElement.classList.toggle('dark');
     setIsDarkMode(!isDarkMode);
+  };
+  
+  const userDisplayName = user?.displayName || user?.email?.split('@')[0] || 'User';
+  const userEmail = user?.email || '';
+  
+  const getInitials = () => {
+    if (user?.displayName) {
+      return user.displayName
+        .split(' ')
+        .map(name => name[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+    }
+    return userDisplayName.substring(0, 2).toUpperCase();
   };
 
   return (
@@ -48,7 +73,6 @@ export default function Navbar() {
             </a>
           )}
           
-          {}
           <Link href={user ? "/dashboard" : "/"} className="relative group ml-2 md:ml-8">
             <div className="absolute inset-0 bg-green-50/90 rounded-lg -skew-x-6 transform transition-all duration-300 group-hover:skew-x-0"></div>
             <div className="absolute inset-0 border-2 border-navbar rounded-lg -skew-x-6 transform transition-all duration-300 group-hover:skew-x-0"></div>
@@ -66,31 +90,116 @@ export default function Navbar() {
         </div>
         
         <div className="flex items-center gap-3">
-          {!isLandingPage && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleDarkMode}
-              aria-label="Toggle dark mode"
-              className="h-10 w-10 text-navbar bg-white/10 hover:bg-white/20 hover:text-white rounded-md"
-            >
-              {isDarkMode ? (
-                <SunIcon className="h-6 w-6" />
-              ) : (
-                <MoonIcon className="h-6 w-6" />
-              )}
-            </Button>
+          {/* User info for desktop */}
+          {user && !isLandingPage && (
+            <div className="hidden md:flex items-center gap-2 text-white bg-black/20 rounded-md px-3 py-1">
+              <Avatar className="h-8 w-8 border border-white/30">
+                <AvatarImage src={user.photoURL || ""} />
+                <AvatarFallback className="bg-green-700 text-white text-xs">
+                  {getInitials()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium">{userDisplayName}</span>
+                <span className="text-xs opacity-75">{userEmail}</span>
+              </div>
+            </div>
           )}
-          {user && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={logout}
-              aria-label="Logout"
-              className="h-10 w-10 bg-black text-white hover:bg-black/80 hover:text-white rounded-md"
-            >
-              <LogOutIcon className="h-6 w-6" />
-            </Button>
+          
+          {/* Desktop Dark Mode + Logout */}
+          {!isLandingPage && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleDarkMode}
+                aria-label="Toggle dark mode"
+                className="hidden md:flex h-10 w-10 text-navbar bg-white/10 hover:bg-white/20 hover:text-white rounded-md"
+              >
+                {isDarkMode ? (
+                  <SunIcon className="h-6 w-6" />
+                ) : (
+                  <MoonIcon className="h-6 w-6" />
+                )}
+              </Button>
+              
+              {user && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={logout}
+                  aria-label="Logout"
+                  className="hidden md:flex h-10 w-10 bg-black text-white hover:bg-black/80 hover:text-white rounded-md"
+                >
+                  <LogOutIcon className="h-6 w-6" />
+                </Button>
+              )}
+            </>
+          )}
+          
+          {/* Mobile Drawer */}
+          {user && !isLandingPage && (
+            <Drawer>
+              <DrawerTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="md:hidden h-10 w-10 bg-white/10 hover:bg-white/20 text-white rounded-md"
+                >
+                  <MenuIcon className="h-6 w-6" />
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent className="px-4">
+                <DrawerHeader>
+                  <DrawerTitle className="text-center">User Profile</DrawerTitle>
+                </DrawerHeader>
+                
+                <div className="flex flex-col items-center gap-4 py-6">
+                  <Avatar className="h-20 w-20 border-2">
+                    <AvatarImage src={user.photoURL || ""} />
+                    <AvatarFallback className="bg-green-700 text-white text-lg">
+                      {getInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  <div className="text-center">
+                    <h3 className="font-semibold text-lg">{userDisplayName}</h3>
+                    <p className="text-muted-foreground">{userEmail}</p>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-sm">Dark Mode</span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={toggleDarkMode}
+                      aria-label="Toggle dark mode"
+                      className="h-9 w-9"
+                    >
+                      {isDarkMode ? (
+                        <SunIcon className="h-5 w-5" />
+                      ) : (
+                        <MoonIcon className="h-5 w-5" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                
+                <DrawerFooter className="pt-2">
+                  <Button 
+                    onClick={logout} 
+                    variant="destructive" 
+                    className="gap-2"
+                  >
+                    <LogOutIcon className="h-4 w-4" />
+                    Logout
+                  </Button>
+                  <DrawerClose asChild>
+                    <Button variant="outline">Close</Button>
+                  </DrawerClose>
+                </DrawerFooter>
+              </DrawerContent>
+            </Drawer>
           )}
         </div>
       </div>

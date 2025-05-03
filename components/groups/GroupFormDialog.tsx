@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useForm, SubmitHandler } from "react-hook-form";
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from '@/lib/firebase/config';
 import { v4 as uuidv4 } from 'uuid';
 import { toast } from "sonner";
@@ -19,7 +19,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { X, UserPlus } from 'lucide-react';
+import { X, UserPlus, AlertCircle } from 'lucide-react';
+import { cn } from "@/lib/utils";
+
+const NAME_MAX_LENGTH = 30;
+const GUEST_NAME_MAX_LENGTH = 20;
+const ALPHANUMERIC_REGEX = /^[a-zA-Z0-9 ]+$/;
 
 interface User {
   uid: string;
@@ -41,6 +46,7 @@ interface GroupFormDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   user: User;
+  onDialogClose?: () => void;
 }
 
 const predefinedTeamColors = [
@@ -77,7 +83,8 @@ const generateInviteCode = (): string => {
 export default function GroupFormDialog({
   isOpen,
   onOpenChange,
-  user
+  user,
+  onDialogClose
 }: GroupFormDialogProps) {
   const [isSubmittingGroup, setIsSubmittingGroup] = useState(false);
   const [createGuestNameInput, setCreateGuestNameInput] = useState('');
@@ -86,6 +93,7 @@ export default function GroupFormDialog({
     remaining: number;
     nextAvailable: Date | null;
   } | null>(null);
+  const [guestInputError, setGuestInputError] = useState<string | null>(null);
 
   const {
     register,
@@ -125,10 +133,8 @@ export default function GroupFormDialog({
             
             setRateLimit({ remaining: groupsRemaining, nextAvailable });
           } else {
-            // Initialize without setting a timestamp
             await setDoc(ratelimitRef, {
               groupCount: 0
-              // Don't set lastGroupCreation here
             });
             setRateLimit({ remaining: 20, nextAvailable: null });
           }
@@ -144,25 +150,47 @@ export default function GroupFormDialog({
   const watchedTeamOneColor = watch('teamOneColor');
   const watchedTeamTwoColor = watch('teamTwoColor');
 
+  const validateGuestName = (name: string): string | null => {
+    if (name.length === 0) return null;
+    if (name.length > GUEST_NAME_MAX_LENGTH) 
+      return `Name must be ${GUEST_NAME_MAX_LENGTH} characters or less`;
+    if (!ALPHANUMERIC_REGEX.test(name)) 
+      return "Name must contain only letters, numbers, and spaces";
+    return null;
+  };
+
+  const handleGuestNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setCreateGuestNameInput(value);
+    setGuestInputError(validateGuestName(value));
+  };
+
   const handleAddGuest = () => {
     const trimmedName = createGuestNameInput.trim();
-    if (trimmedName) {
-      if (createGuestMembers.length >= 50) {
-        toast.error("Guest limit reached", { 
-          description: "A group can have a maximum of 50 guest players." 
-        });
-        return;
-      }
-      
-      const existingGuest = createGuestMembers.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
+    if (!trimmedName) return;
+    
+    const error = validateGuestName(trimmedName);
+    if (error) {
+      setGuestInputError(error);
+      return;
+    }
+    
+    if (createGuestMembers.length >= 30) {
+      toast.error("Guest limit reached", { 
+        description: "A group can have a maximum of 30 guest players." 
+      });
+      return;
+    }
+    
+    const existingGuest = createGuestMembers.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
 
-      if (!existingGuest) {
-        const guestId = uuidv4();
-        setCreateGuestMembers([...createGuestMembers, { id: guestId, name: trimmedName }]);
-        setCreateGuestNameInput('');
-      } else {
-        toast.warning("Guest with this name already exists.");
-      }
+    if (!existingGuest) {
+      const guestId = uuidv4();
+      setCreateGuestMembers([...createGuestMembers, { id: guestId, name: trimmedName }]);
+      setCreateGuestNameInput('');
+      setGuestInputError(null);
+    } else {
+      toast.warning("Guest with this name already exists.");
     }
   };
 
@@ -234,13 +262,8 @@ export default function GroupFormDialog({
         },
         groupColor: selectedGroupColor,
       };
-      await addDoc(groupsCollectionRef, newGroupData);
       
-      const ratelimitRef = doc(db, 'ratelimits', user.uid);
-      await updateDoc(ratelimitRef, {
-        groupCount: increment(1),
-        lastGroupCreation: serverTimestamp()
-      });
+      await addDoc(groupsCollectionRef, newGroupData);
       
       toast.success("Group created successfully!");
 
@@ -270,6 +293,10 @@ export default function GroupFormDialog({
         reset();
         setCreateGuestMembers([]);
         setCreateGuestNameInput('');
+        setGuestInputError(null);
+        if (onDialogClose) {
+          onDialogClose();
+        }
       }
       onOpenChange(open);
     }}>
@@ -287,7 +314,7 @@ export default function GroupFormDialog({
             
             {rateLimit.nextAvailable && (
               <div className="mt-2">
-                Cooldown active. Button will be disabled until the cooldown ends.
+                Cooldown active.
               </div>
             )}
           </div>
@@ -297,15 +324,32 @@ export default function GroupFormDialog({
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="groupName" className="text-right">Group Name</Label>
-              <Input
-                id="groupName"
-                className="col-span-3"
-                {...register("groupName", { required: "Group name is required" })}
-                disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
-              />
-              {errors.groupName && (
-                <p className="col-span-4 text-right text-sm text-red-500">{errors.groupName.message}</p>
-              )}
+              <div className="col-span-3">
+                <Input
+                  id="groupName"
+                  className={cn(
+                    errors.groupName ? "border-red-500 focus-visible:ring-red-500" : ""
+                  )}
+                  {...register("groupName", { 
+                    required: "Group name is required",
+                    maxLength: {
+                      value: NAME_MAX_LENGTH,
+                      message: `Group name must be ${NAME_MAX_LENGTH} characters or less`
+                    },
+                    pattern: {
+                      value: ALPHANUMERIC_REGEX,
+                      message: "Group name must contain only letters, numbers, and spaces"
+                    }
+                  })}
+                  disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
+                />
+                {errors.groupName && (
+                  <div className="flex items-center mt-1 text-sm text-red-500">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    <span>{errors.groupName.message}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-4 items-center gap-4">
@@ -367,22 +411,33 @@ export default function GroupFormDialog({
               </div>
               <div className="col-span-4 space-y-3">
                 <div className="flex gap-2">
-                  <Input
-                    placeholder="Add guest name"
-                    value={createGuestNameInput}
-                    onChange={(e) => setCreateGuestNameInput(e.target.value)}
-                    disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddGuest();
-                      }
-                    }}
-                  />
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Add guest name"
+                      value={createGuestNameInput}
+                      onChange={handleGuestNameChange}
+                      className={cn(
+                        guestInputError ? "border-red-500 focus-visible:ring-red-500" : ""
+                      )}
+                      disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddGuest();
+                        }
+                      }}
+                    />
+                    {guestInputError && (
+                      <div className="flex items-center mt-1 text-sm text-red-500">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        <span>{guestInputError}</span>
+                      </div>
+                    )}
+                  </div>
                   <Button
                     type="button"
                     onClick={handleAddGuest}
-                    disabled={!createGuestNameInput.trim() || isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
+                    disabled={!createGuestNameInput.trim() || !!guestInputError || isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
                   >
                     <UserPlus className="h-4 w-4" />
                   </Button>
@@ -415,7 +470,7 @@ export default function GroupFormDialog({
               <Button 
                 type="button" 
                 variant="outline" 
-                disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
+                disabled={isSubmittingGroup}
               >
                 Cancel
               </Button>
@@ -424,7 +479,11 @@ export default function GroupFormDialog({
               type="submit" 
               disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
             >
-              {isSubmittingGroup ? 'Creating...' : 'Create Group'}
+              {isSubmittingGroup 
+                ? 'Creating...' 
+                : (rateLimit?.nextAvailable 
+                    ? `Create Group (${Math.ceil((rateLimit.nextAvailable.getTime() - Date.now()) / 1000)}s)` 
+                    : 'Create Group')}
             </Button>
           </DialogFooter>
         </form>
@@ -432,4 +491,3 @@ export default function GroupFormDialog({
     </Dialog>
   );
 }
-

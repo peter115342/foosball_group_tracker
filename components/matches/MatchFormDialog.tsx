@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useForm, SubmitHandler, Controller } from "react-hook-form";
-import { addDoc, collection, doc, serverTimestamp, Timestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, serverTimestamp, Timestamp, updateDoc, getDoc} from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { toast } from "sonner";
 
@@ -110,6 +110,7 @@ interface MatchFormDialogProps {
     groupId: string;
     selectablePlayers: SelectablePlayer[];
     members: Array<{ uid: string; displayName: string }>;
+    user: { uid: string; displayName: string | null };
 }
 
 export default function MatchFormDialog({
@@ -119,10 +120,65 @@ export default function MatchFormDialog({
     group,
     groupId,
     selectablePlayers,
-    members
+    members,
+    user
 }: MatchFormDialogProps) {
     const [isSubmittingMatch, setIsSubmittingMatch] = useState(false);
     const [normalizedPlayers, setNormalizedPlayers] = useState<SelectablePlayer[]>([]);
+    const [rateLimit, setRateLimit] = useState<{
+        lastMatchCreation: Date | null;
+        cooldownRemaining: number;
+    } | null>(null);
+
+    useEffect(() => {
+        if (user?.uid && isOpen) {
+            const fetchRateLimits = async () => {
+                try {
+                    const ratelimitRef = doc(db, 'matchRatelimits', user.uid);
+                    const ratelimitDoc = await getDoc(ratelimitRef);
+                    
+                    if (ratelimitDoc.exists()) {
+                        const data = ratelimitDoc.data();
+                        const lastCreation = data.lastMatchCreation ?
+                            data.lastMatchCreation.toDate() : null;
+                        
+                        let cooldownRemaining = 0;
+                        if (lastCreation) {
+                            const cooldownEnd = new Date(lastCreation.getTime() + (10 * 1000));
+                            cooldownRemaining = Math.max(0,
+                                Math.floor((cooldownEnd.getTime() - Date.now()) / 1000));
+                        }
+                        
+                        setRateLimit({
+                            lastMatchCreation: lastCreation,
+                            cooldownRemaining
+                        });
+                    } else {
+                        setRateLimit({
+                            lastMatchCreation: null,
+                            cooldownRemaining: 0
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error fetching match rate limits:", error);
+                }
+            };
+            
+            fetchRateLimits();
+            
+            if (rateLimit && rateLimit.cooldownRemaining > 0) {
+                const interval = setInterval(() => {
+                    setRateLimit(prev => {
+                        if (!prev) return prev;
+                        const newRemaining = Math.max(0, prev.cooldownRemaining - 1);
+                        return { ...prev, cooldownRemaining: newRemaining };
+                    });
+                }, 1000);
+                
+                return () => clearInterval(interval);
+            }
+        }
+    }, [user?.uid, isOpen, rateLimit?.cooldownRemaining]);
 
     useEffect(() => {
         const safeSelectablePlayers = Array.isArray(selectablePlayers) ? selectablePlayers : [];
@@ -237,6 +293,14 @@ export default function MatchFormDialog({
 
     const onSubmitMatch: SubmitHandler<MatchFormInputs> = async (data) => {
         setIsSubmittingMatch(true);
+
+        if (rateLimit && rateLimit.cooldownRemaining > 0 && !editingMatch) {
+            toast.error("Rate limit cooldown active", {
+                description: `Please wait ${rateLimit.cooldownRemaining}s before creating another match.`
+            });
+            setIsSubmittingMatch(false);
+            return;
+        }
 
         const players = [data.team1Player1, data.team1Player2, data.team2Player1, data.team2Player2].filter(Boolean);
         const uniquePlayers = new Set(players);
@@ -411,6 +475,7 @@ export default function MatchFormDialog({
                     }))
                 },
                 winner: winner || 'draw',
+                createdBy: user.uid,
             };
 
             const cleanedMatchData = cleanObject(matchDocData);
@@ -427,6 +492,7 @@ export default function MatchFormDialog({
                     ...cleanedMatchData,
                     createdAt: serverTimestamp(),
                 });
+                
                 toast.success("Match added successfully!");
             }
 
@@ -435,7 +501,15 @@ export default function MatchFormDialog({
 
         } catch (err) {
             console.error("Error saving match:", err);
-            toast.error("Error saving match", { description: (err as Error).message });
+            if (err instanceof Error &&
+                err.message.includes("permission") &&
+                err.message.includes("insufficient")) {
+                toast.error("Rate limit reached", {
+                    description: "You must wait 10 seconds between creating matches."
+                });
+            } else {
+                toast.error("Error saving match", { description: (err as Error).message });
+            }
         } finally {
             setIsSubmittingMatch(false);
         }
@@ -791,8 +865,16 @@ export default function MatchFormDialog({
                             <DialogClose asChild>
                                 <Button type="button" variant="outline" disabled={isSubmittingMatch} className="w-full sm:w-auto">Cancel</Button>
                             </DialogClose>
-                            <Button type="submit" disabled={isSubmittingMatch} className="w-full sm:w-auto">
-                                {isSubmittingMatch ? (editingMatch ? 'Saving...' : 'Adding...') : (editingMatch ? 'Save Changes' : 'Add Match')}
+                            <Button
+                                type="submit"
+                                disabled={isSubmittingMatch || (!editingMatch && (rateLimit?.cooldownRemaining || 0) > 0)}
+                                className="w-full sm:w-auto"
+                            >
+                                {isSubmittingMatch
+                                    ? (editingMatch ? 'Saving...' : 'Adding...')
+                                    : (!editingMatch && (rateLimit?.cooldownRemaining || 0) > 0)
+                                        ? `Add Match (${rateLimit?.cooldownRemaining}s)`
+                                        : (editingMatch ? 'Save Changes' : 'Add Match')}
                             </Button>
                         </DialogFooter>
                     </form>

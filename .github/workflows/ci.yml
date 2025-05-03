@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feature/ui-rework
 
 jobs:
   lint:
@@ -18,10 +17,14 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install ruff
+          uv pip install --system ruff
 
       - name: Run Ruff check
         run: |
@@ -39,11 +42,15 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest pytest-mock
-          pip install -r functions/requirements.txt
+          uv pip install --system pytest pytest-mock
+          uv pip install --system -r functions/requirements.txt
 
       - name: Run tests
         run: |
