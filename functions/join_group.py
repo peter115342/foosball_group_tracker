@@ -1,3 +1,5 @@
+import re
+
 from firebase_admin import firestore
 from firebase_functions import https_fn
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -11,7 +13,14 @@ def join_group_with_code(data, auth):
         if "inviteCode" not in data:
             raise ValueError("Missing required field: inviteCode")
 
-        invite_code = data["inviteCode"]
+        invite_code = data["inviteCode"].strip().upper()
+
+        if len(invite_code) != 8:
+            raise ValueError("Invite code must be 8 characters")
+
+        if not re.match(r"^[A-Z0-9]+$", invite_code):
+            raise ValueError("Invite code must contain only letters and numbers")
+
         user_id = auth.uid
         user_name = auth.token.get("name", "User")
 

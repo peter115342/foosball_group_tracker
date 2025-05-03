@@ -18,9 +18,13 @@ import { toast } from 'sonner';
 import { User } from 'firebase/auth';
 import InviteCodeDisplay from './InviteCodeDisplay';
 import { v4 as uuidv4 } from 'uuid';
-import { Trash2, UserPlus, X, ArrowRight } from 'lucide-react';
+import { Trash2, UserPlus, X, ArrowRight, AlertCircle } from 'lucide-react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/lib/firebase/config';
+import { cn } from "@/lib/utils";
+
+const GUEST_NAME_MAX_LENGTH = 20;
+const ALPHANUMERIC_REGEX = /^[a-zA-Z0-9 ]+$/;
 
 const generateInviteCode = (): string => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -62,6 +66,7 @@ export default function ManageMembersDialog({
   const [isEditor, setIsEditor] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [guestNameInput, setGuestNameInput] = useState('');
+  const [guestInputError, setGuestInputError] = useState<string | null>(null);
   
   const [selectedGuest, setSelectedGuest] = useState<string>('');
   const [selectedMember, setSelectedMember] = useState<string>('');
@@ -75,6 +80,7 @@ export default function ManageMembersDialog({
       setSavedGuests(loadedGuests);
       setIsAdmin(currentUser.uid === group.adminUid);
       setIsEditor(group.members?.[currentUser.uid]?.role === 'editor' || currentUser.uid === group.adminUid);
+      setGuestInputError(null);
     }
   }, [isOpen, group, currentUser]);
 
@@ -86,10 +92,26 @@ export default function ManageMembersDialog({
       setSelectedGuest('');
       setSelectedMember('');
       setGuestNameInput('');
+      setGuestInputError(null);
       setIsMigrating(false);
       setIsSubmitting(false);
     }
     onOpenChange(open);
+  };
+
+  const validateGuestName = (name: string): string | null => {
+    if (name.length === 0) return null;
+    if (name.length > GUEST_NAME_MAX_LENGTH) 
+      return `Name must be ${GUEST_NAME_MAX_LENGTH} characters or less`;
+    if (!ALPHANUMERIC_REGEX.test(name)) 
+      return "Name must contain only letters, numbers, and spaces";
+    return null;
+  };
+
+  const handleGuestNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setGuestNameInput(value);
+    setGuestInputError(validateGuestName(value));
   };
 
   const handleRoleChange = (uid: string, newRole: 'viewer' | 'editor') => {
@@ -105,16 +127,30 @@ export default function ManageMembersDialog({
 
   const handleAddGuest = () => {
     const trimmedName = guestNameInput.trim();
-    if (trimmedName) {
-      const existingGuest = guests.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
+    if (!trimmedName) return;
+    
+    const error = validateGuestName(trimmedName);
+    if (error) {
+      setGuestInputError(error);
+      return;
+    }
+    
+    if (guests.length >= 50) {
+      toast.warning("Guest limit reached", { 
+        description: "A group can have a maximum of 50 guest players." 
+      });
+      return;
+    }
 
-      if (!existingGuest) {
-        const guestId = uuidv4();
-        setGuests([...guests, { id: guestId, name: trimmedName }]);
-        setGuestNameInput('');
-      } else {
-        toast.warning("Guest with this name already exists.");
-      }
+    const existingGuest = guests.find(guest => guest.name.toLowerCase() === trimmedName.toLowerCase());
+
+    if (!existingGuest) {
+      const guestId = uuidv4();
+      setGuests([...guests, { id: guestId, name: trimmedName }]);
+      setGuestNameInput('');
+      setGuestInputError(null);
+    } else {
+      toast.warning("Guest with this name already exists.");
     }
   };
 
@@ -206,7 +242,7 @@ export default function ManageMembersDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[550px] overflow-hidden"hideCloseButton>
+      <DialogContent className="sm:max-w-[550px] overflow-hidden" hideCloseButton>
         <div className="dialog-scrollable custom-scrollbar">
           <DialogHeader>
             <DialogTitle>Manage Group</DialogTitle>
@@ -280,22 +316,33 @@ export default function ManageMembersDialog({
               
               {isEditor && (
                 <div className="flex gap-2 mb-3">
-                  <Input
-                    placeholder="Add guest name"
-                    value={guestNameInput}
-                    onChange={(e) => setGuestNameInput(e.target.value)}
-                    disabled={isSubmitting}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleAddGuest();
-                      }
-                    }}
-                  />
+                  <div className="flex-1">
+                    <Input
+                      placeholder="Add guest name"
+                      value={guestNameInput}
+                      onChange={handleGuestNameChange}
+                      className={cn(
+                        guestInputError ? "border-red-500 focus-visible:ring-red-500" : ""
+                      )}
+                      disabled={isSubmitting}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddGuest();
+                        }
+                      }}
+                    />
+                    {guestInputError && (
+                      <div className="flex items-center mt-1 text-sm text-red-500">
+                        <AlertCircle className="h-4 w-4 mr-1" />
+                        <span>{guestInputError}</span>
+                      </div>
+                    )}
+                  </div>
                   <Button
                     type="button"
                     onClick={handleAddGuest}
-                    disabled={!guestNameInput.trim() || isSubmitting}
+                    disabled={!guestNameInput.trim() || !!guestInputError || isSubmitting}
                   >
                     <UserPlus className="h-4 w-4" />
                   </Button>
