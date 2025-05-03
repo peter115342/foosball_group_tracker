@@ -476,9 +476,19 @@ export default function GroupDetailPage() {
             </header>
 
             <Tabs defaultValue="matches" className="w-full">
-                <TabsList className="mb-4 w-full flex justify-center sm:justify-start">
-                    <TabsTrigger value="matches" className="px-10 py-3 text-lg">Matches</TabsTrigger>
-                    <TabsTrigger value="statistics" className="px-10 py-3 text-lg">Statistics</TabsTrigger>
+                <TabsList className="mb-4 w-full flex justify-center sm:justify-start dark:bg-gray-800">
+                    <TabsTrigger 
+                        value="matches" 
+                        className="px-10 py-3 text-lg data-[state=inactive]:dark:text-gray-200 data-[state=active]:dark:text-white data-[state=active]:dark:bg-gray-700"
+                    >
+                        Matches
+                    </TabsTrigger>
+                    <TabsTrigger 
+                        value="statistics" 
+                        className="px-10 py-3 text-lg data-[state=inactive]:dark:text-gray-200 data-[state=active]:dark:text-white data-[state=active]:dark:bg-gray-700"
+                    >
+                        Statistics
+                    </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="matches">
