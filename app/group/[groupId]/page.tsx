@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { ArrowLeft } from 'lucide-react';
 import MatchesSection from '@/components/groups/detail/MatchesSection';
 import StatisticsSection from '@/components/groups/detail/StatisticsSection';
+import ExportButton from '@/components/export/ExportButton';
 
 interface GroupData extends DocumentData {
     id: string;
@@ -460,7 +461,18 @@ export default function GroupDetailPage() {
             </Button>
 
             <header className="mb-8 border-b pb-4">
-                <h1 className="text-3xl font-bold tracking-tight mb-1">{group.name}</h1>
+                <div className="flex flex-wrap justify-between items-start gap-4 mb-2">
+                    <h1 className="text-3xl font-bold tracking-tight">{group.name}</h1>
+                    
+                    {!groupLoading && !error && group && (
+                        <ExportButton 
+                            matches={matches} 
+                            groupStats={groupStats} 
+                            groupName={group.name} 
+                        />
+                    )}
+                </div>
+                
                 {group.groupColor && (
                     <div
                         className="h-1 w-16 rounded mb-3"
