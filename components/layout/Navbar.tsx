@@ -5,18 +5,18 @@ import Image from 'next/image';
 import { useAuth } from '@/context/authContext';
 import { Button } from '@/components/ui/button';
 import { useEffect, useState } from 'react';
-import { MoonIcon, SunIcon, LogOutIcon, MenuIcon } from 'lucide-react';
+import { MoonIcon, SunIcon, LogOutIcon, MenuIcon, GithubIcon } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { 
-  Drawer, 
-  DrawerContent, 
-  DrawerHeader, 
-  DrawerTitle,
-  DrawerTrigger,
-  DrawerFooter,
-  DrawerClose 
-} from "@/components/ui/drawer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -34,9 +34,11 @@ export default function Navbar() {
     setIsDarkMode(!isDarkMode);
   };
   
+  // Determine what to display (name or email)
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || 'User';
   const userEmail = user?.email || '';
   
+  // Get initials for avatar
   const getInitials = () => {
     if (user?.displayName) {
       return user.displayName
@@ -92,18 +94,74 @@ export default function Navbar() {
         <div className="flex items-center gap-3">
           {/* User info for desktop */}
           {user && !isLandingPage && (
-            <div className="hidden md:flex items-center gap-2 text-white bg-black/20 rounded-md px-3 py-1">
-              <Avatar className="h-8 w-8 border border-white/30">
-                <AvatarImage src={user.photoURL || ""} />
-                <AvatarFallback className="bg-green-700 text-white text-xs">
-                  {getInitials()}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">{userDisplayName}</span>
-                <span className="text-xs opacity-75">{userEmail}</span>
+            <>
+              <div className="hidden md:flex items-center gap-2 text-white bg-black/20 rounded-md px-3 py-1">
+                <Avatar className="h-8 w-8 border border-white/30">
+                  <AvatarImage alt={userDisplayName} src={user.photoURL || undefined} />
+                  <AvatarFallback className="bg-green-700 text-white text-xs">
+                    {getInitials()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{userDisplayName}</span>
+                  <span className="text-xs opacity-75">{userEmail}</span>
+                </div>
               </div>
-            </div>
+              
+              {/* Mobile dropdown menu */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild className="md:hidden">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 bg-white/20 hover:bg-white/30 text-white rounded-md"
+                  >
+                    <MenuIcon className="h-6 w-6" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72 p-2 mt-1">
+                  <DropdownMenuLabel className="text-lg font-bold">My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <div className="flex flex-col items-center py-4">
+                    <Avatar className="h-20 w-20 mb-3 border-2">
+                      <AvatarImage alt={userDisplayName} src={user.photoURL || undefined} />
+                      <AvatarFallback className="bg-green-700 text-white text-lg">
+                        {getInitials()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <p className="font-medium text-lg">{userDisplayName}</p>
+                    <p className="text-sm text-muted-foreground">{userEmail}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    {!isLandingPage && (
+                      <DropdownMenuItem asChild className="cursor-pointer py-2">
+                        <a 
+                          href="https://github.com/peter115342/foosball_group_tracker" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center"
+                        >
+                          <GithubIcon className="h-5 w-5 mr-2" />
+                          <span>GitHub Repository</span>
+                        </a>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={toggleDarkMode} className="cursor-pointer py-2">
+                      {isDarkMode ? (
+                        <><SunIcon className="h-5 w-5 mr-2" /> Light Mode</>
+                      ) : (
+                        <><MoonIcon className="h-5 w-5 mr-2" /> Dark Mode</>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive py-2">
+                      <LogOutIcon className="h-5 w-5 mr-2" /> Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           )}
           
           {/* Desktop Dark Mode + Logout */}
@@ -135,71 +193,6 @@ export default function Navbar() {
                 </Button>
               )}
             </>
-          )}
-          
-          {/* Mobile Drawer */}
-          {user && !isLandingPage && (
-            <Drawer>
-              <DrawerTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="md:hidden h-10 w-10 bg-white/10 hover:bg-white/20 text-white rounded-md"
-                >
-                  <MenuIcon className="h-6 w-6" />
-                </Button>
-              </DrawerTrigger>
-              <DrawerContent className="px-4">
-                <DrawerHeader>
-                  <DrawerTitle className="text-center">User Profile</DrawerTitle>
-                </DrawerHeader>
-                
-                <div className="flex flex-col items-center gap-4 py-6">
-                  <Avatar className="h-20 w-20 border-2">
-                    <AvatarImage src={user.photoURL || ""} />
-                    <AvatarFallback className="bg-green-700 text-white text-lg">
-                      {getInitials()}
-                    </AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="text-center">
-                    <h3 className="font-semibold text-lg">{userDisplayName}</h3>
-                    <p className="text-muted-foreground">{userEmail}</p>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="text-sm">Dark Mode</span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={toggleDarkMode}
-                      aria-label="Toggle dark mode"
-                      className="h-9 w-9"
-                    >
-                      {isDarkMode ? (
-                        <SunIcon className="h-5 w-5" />
-                      ) : (
-                        <MoonIcon className="h-5 w-5" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                
-                <DrawerFooter className="pt-2">
-                  <Button 
-                    onClick={logout} 
-                    variant="destructive" 
-                    className="gap-2"
-                  >
-                    <LogOutIcon className="h-4 w-4" />
-                    Logout
-                  </Button>
-                  <DrawerClose asChild>
-                    <Button variant="outline">Close</Button>
-                  </DrawerClose>
-                </DrawerFooter>
-              </DrawerContent>
-            </Drawer>
           )}
         </div>
       </div>
