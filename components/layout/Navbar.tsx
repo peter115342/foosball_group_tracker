@@ -25,20 +25,30 @@ export default function Navbar() {
   const isLandingPage = pathname === '/';
 
   useEffect(() => {
-    const isDark = document.documentElement.classList.contains('dark');
-    setIsDarkMode(isDark);
+    const savedTheme = localStorage.getItem('theme');
+    
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      setIsDarkMode(true);
+    } else if (savedTheme === 'light') {
+      document.documentElement.classList.remove('dark');
+      setIsDarkMode(false);
+    } else {
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
+    }
   }, []);
 
   const toggleDarkMode = () => {
+    const newMode = !isDarkMode;
     document.documentElement.classList.toggle('dark');
-    setIsDarkMode(!isDarkMode);
+    setIsDarkMode(newMode);
+    localStorage.setItem('theme', newMode ? 'dark' : 'light');
   };
   
-  // Determine what to display (name or email)
   const userDisplayName = user?.displayName || user?.email?.split('@')[0] || 'User';
   const userEmail = user?.email || '';
   
-  // Get initials for avatar
   const getInitials = () => {
     if (user?.displayName) {
       return user.displayName
@@ -92,7 +102,6 @@ export default function Navbar() {
         </div>
         
         <div className="flex items-center gap-3">
-          {/* User info for desktop */}
           {user && !isLandingPage && (
             <>
               <div className="hidden md:flex items-center gap-2 text-white bg-black/20 rounded-md px-3 py-1">
@@ -108,7 +117,6 @@ export default function Navbar() {
                 </div>
               </div>
               
-              {/* Mobile dropdown menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild className="md:hidden">
                   <Button 
@@ -164,7 +172,6 @@ export default function Navbar() {
             </>
           )}
           
-          {/* Desktop Dark Mode + Logout */}
           {!isLandingPage && (
             <>
               <Button
