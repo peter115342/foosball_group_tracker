@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/components_tests
 
 jobs:
   lint:
@@ -52,6 +53,25 @@ jobs:
           uv pip install --system pytest pytest-mock
           uv pip install --system -r functions/requirements.txt
 
-      - name: Run tests
+      - name: Run Functions tests
         run: |
           pytest tests_functions/
+
+  jest-tests:
+    name: Run Jest Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+          cache: "npm"
+          cache-dependency-path: "**/package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Jest tests
+        run: npm test

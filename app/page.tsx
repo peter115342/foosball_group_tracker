@@ -1,13 +1,28 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/authContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  type CarouselApi
+} from "@/components/ui/carousel";
 
 export default function LoginPage() {
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(0);
   const { user, loading, signInWithGoogle } = useAuth();
   const router = useRouter();
 
@@ -17,6 +32,24 @@ export default function LoginPage() {
     }
   }, [user, loading, router]);
 
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
+
+    const handleSelect = () => {
+      setCurrent(api.selectedScrollSnap());
+    };
+
+    api.on("select", handleSelect);
+    
+    // Set initial current value
+    setCurrent(api.selectedScrollSnap());
+
+    return () => {
+      api.off("select", handleSelect);
+    };
+  }, [api]);
 
   if (loading || user) {
     return (
@@ -25,6 +58,43 @@ export default function LoginPage() {
       </div>
     );
   }
+
+  const features = [
+    {
+      title: "Match Tracking",
+      description: "Record match results and maintain comprehensive game history",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-400">
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M7 7v10" />
+          <path d="M11 7v10" />
+          <path d="m15 7 2 5-2 5" />
+        </svg>
+      )
+    },
+    {
+      title: "Player Statistics",
+      description: "View detailed player stats, win rates, and performance metrics",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-400">
+          <path d="M3 3v18h18" />
+          <path d="m19 9-5 5-4-4-3 3" />
+        </svg>
+      )
+    },
+    {
+      title: "Group Management",
+      description: "Create and manage multiple foosball groups to track different teams",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-400">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      )
+    }
+  ];
 
   return (
     <div className="fixed inset-0 flex flex-col items-center bg-[#3d8c40] text-white overflow-hidden">
@@ -95,7 +165,7 @@ export default function LoginPage() {
           transition={{ duration: 0.6 }}
           className="mb-4"
         >
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-green-200 to-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.3)]">
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-green-200 to-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.3)]">
             Foosballek
           </h1>
           <div className="h-2 w-full mt-1 bg-gradient-to-r from-[#468f49] to-[#66c16a] rounded-full opacity-80"></div>
@@ -105,9 +175,60 @@ export default function LoginPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.6 }}
-          className="text-lg sm:text-xl text-blue-100 mb-6 text-center"
+          className="text-base sm:text-xl text-blue-100 mb-6 text-center"
         >
-          Track scores and stats for your foosball groups
+          Track stats for your foosball groups
+        </motion.div>
+        
+        {/* Feature Card Carousel */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.6 }}
+          className="w-full max-w-[78%] sm:max-w-md mb-8 relative"
+        >
+          <Carousel 
+            className="w-full" 
+            setApi={setApi} 
+            opts={{
+              loop: true,
+              align: "center"
+            }}
+          >
+            <CarouselContent>
+              {features.map((feature, index) => (
+                <CarouselItem key={index}>
+                  <Card className="bg-white/10 backdrop-blur-sm border-white/20 shadow-xl">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center mb-2">
+                        {feature.icon}
+                      </div>
+                      <CardTitle className="text-white text-xl">{feature.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-white/90 text-sm sm:text-base">
+                        {feature.description}
+                      </CardDescription>
+                      
+                      {/* Pagination Dots inside card */}
+                      <div className="flex justify-center gap-2 mt-4">
+                        {features.map((_, index) => (
+                          <button
+                            key={index}
+                            className={`h-2 rounded-full transition-all ${
+                              current === index ? "w-4 bg-white" : "w-2 bg-white/40"
+                            }`}
+                            onClick={() => api?.scrollTo(index)}
+                            aria-label={`Go to slide ${index + 1}`}
+                          />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+          </Carousel>
         </motion.div>
         
         <motion.div
@@ -134,7 +255,7 @@ export default function LoginPage() {
         </motion.div>
       </div>
       
-      <footer className="w-full h-18 bg-gradient-to-r from-[#1f3f22] to-[#2a4f2e] border-t border-[#468f49]/50 backdrop-blur-md z-20 shadow-[0_-3px_10px_rgba(0,0,0,0.3)]">
+<footer className="w-full h-18 bg-[#468f49] border-t border-[#468f49]/50 backdrop-blur-md z-20">
   <div className="h-full flex flex-wrap justify-center items-center gap-x-8 px-4 max-w-4xl mx-auto">
     <a 
       href="https://github.com/peter115342/foosball_group_tracker" 
@@ -179,7 +300,7 @@ export default function LoginPage() {
       href="https://github.com/peter115342/foosball_group_tracker/issues" 
       target="_blank" 
       rel="noopener noreferrer" 
-      className="flex items-center hover:text-blue-300 transition-colors text-blue-400 hover:underline font-medium text-base"
+      className="flex items-center hover:text-blue-300 transition-colors text-blue-700 hover:underline font-medium text-base"
     >
       <svg 
         xmlns="http://www.w3.org/2000/svg" 
@@ -199,10 +320,9 @@ export default function LoginPage() {
       </svg>
       Report Issues
     </a>
-    <span className="text-sm text-blue-200 font-medium">© 2025 Peter115342</span>
+    <span className="text-sm text-white/90 font-medium">© 2025 Peter115342</span>
   </div>
 </footer>
-
     </div>
   );
 }
