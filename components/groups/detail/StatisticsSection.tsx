@@ -22,8 +22,14 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { BarChart, Calendar, User, TrendingUp } from 'lucide-react';
+import { BarChart, Calendar, User, TrendingUp, InfoIcon } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface PlayerStats {
     displayName: string;
@@ -103,7 +109,7 @@ interface StatisticsSectionProps {
     group: GroupData;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any
 const formatPlayedAt = (timestamp: any) => {
   try {
     if (timestamp && typeof timestamp.toDate === 'function') {
@@ -138,7 +144,6 @@ const formatPlayedAt = (timestamp: any) => {
   }
 };
 
-// Format a YYYY-MM-DD date string to a more readable format
 const formatDateString = (dateStr: string): string => {
   try {
     if (!dateStr) return 'Unknown date';
@@ -159,6 +164,8 @@ export default function StatisticsSection({
     statsLoading,
     group
 }: StatisticsSectionProps) {
+    const ratingFormula = "Rating = 1000 + (WinRate × 500) + ((AvgGoalsScored - AvgGoalsConceded) × 10)";
+    
     return (
         <div className="space-y-6">
             <h2 className="text-2xl font-semibold mb-4">Group Statistics</h2>
@@ -175,7 +182,6 @@ export default function StatisticsSection({
                 </div>
             ) : (
                 <>
-                    {/* Group Overview Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <Card>
                             <CardHeader className="pb-2">
@@ -236,14 +242,30 @@ export default function StatisticsSection({
                         </Card>
                     </div>
 
-                    {/* Player Statistics Accordion */}
                     <div className="mb-6">
                         <h3 className="text-xl font-semibold mb-4">Player Statistics</h3>
                         
-                        {/* Player Leaderboard */}
                         <Card className="mb-4">
                             <CardHeader>
-                                <CardTitle>Player Leaderboard</CardTitle>
+                                <CardTitle className="flex items-center gap-2">
+                                    Player Leaderboard
+                                    <TooltipProvider delayDuration={0} skipDelayDuration={500} disableHoverableContent={false}>
+                                        <Tooltip>
+                                        <TooltipTrigger asChild>
+                                        <button 
+                                            className="inline-flex items-center justify-center rounded-full w-5 h-5 bg-muted hover:bg-muted-foreground/20 transition-colors"
+                                            aria-label="Rating formula info"
+                                        >
+                                            <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                        </button>
+                                        </TooltipTrigger>
+                                            <TooltipContent className="max-w-[240px]" side="bottom">
+                                                <p><strong>Rating Formula:</strong></p>
+                                                <p className="font-mono text-xs mt-1">{ratingFormula}</p>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </CardTitle>
                                 <CardDescription>Top players ranked by rating</CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -253,7 +275,11 @@ export default function StatisticsSection({
                                             <TableRow>
                                                 <TableHead className="w-[60px]">#</TableHead>
                                                 <TableHead>Player</TableHead>
-                                                <TableHead className="w-[80px] text-right">Rating</TableHead>
+                                                <TableHead className="w-[80px] text-right">
+                                                    <div className="flex items-center justify-end">
+                                                        Rating
+                                                    </div>
+                                                </TableHead>
                                                 <TableHead className="hidden md:table-cell w-[100px] text-center">W/D/L</TableHead>
                                                 <TableHead className="w-[80px] text-right">Win %</TableHead>
                                             </TableRow>
@@ -361,7 +387,6 @@ export default function StatisticsSection({
                                                     </ul>
                                                 </div>
                                                 
-                                                {/* Partner stats for 2v2 games */}
                                                 {player.teamPartners && Object.keys(player.teamPartners).length > 0 && (
                                                     <div className="col-span-1 sm:col-span-2 mt-2">
                                                         <h4 className="font-semibold mb-2">Team Partnerships (2v2)</h4>
@@ -400,7 +425,6 @@ export default function StatisticsSection({
                         </Accordion>
                     </div>
 
-                    {/* Team Color Statistics */}
                     <div className="mb-6">
                         <h3 className="text-xl font-semibold mb-4">Team Color Performance</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

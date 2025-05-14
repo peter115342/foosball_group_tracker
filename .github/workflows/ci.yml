@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feat/components_tests
 
 jobs:
   lint:
