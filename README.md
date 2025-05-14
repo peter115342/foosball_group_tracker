@@ -64,8 +64,7 @@ I would like to keep this service free for everyone to use. However, as a studen
 <img width="937" alt="image" src="https://github.com/user-attachments/assets/969a2e40-cdb6-4a8b-b16d-04f2a91077ae" />
 
 ### Statistics:
-<img width="956" alt="image" src="https://github.com/user-attachments/assets/c112e996-f7cf-4097-8b39-327f8b60e1c1" />
-
+<img width="923" alt="image" src="https://github.com/user-attachments/assets/beaee2ec-6573-428a-9e5b-44dbdc5652a7" />
 
 ## Deployment
 
