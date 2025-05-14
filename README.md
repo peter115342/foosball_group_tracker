@@ -58,7 +58,7 @@ I would like to keep this service free for everyone to use. However, as a studen
 
 ## Screenshots
 ### Dashboard:
-<img width="941" alt="image" src="https://github.com/user-attachments/assets/23ac481a-c0ba-48b5-89d8-e941e0a6dce6" />
+<img width="931" alt="image" src="https://github.com/user-attachments/assets/1b42f1e5-c65f-478c-a929-916adc2cd5b4" />
 
 ### Matches:
 <img width="937" alt="image" src="https://github.com/user-attachments/assets/969a2e40-cdb6-4a8b-b16d-04f2a91077ae" />
