@@ -158,12 +158,12 @@ export default function LoginPage() {
 
       <div className="absolute inset-0 bg-gradient-to-b from-blue-900/70 to-indigo-900/70 backdrop-blur-[2px]"></div>
 
-      <div className="flex flex-col items-center justify-center flex-1 z-10 px-4 max-h-[calc(100vh-64px)]">
+      <div className="flex flex-col items-center justify-center flex-1 z-10 px-4 pt-12 sm:pt-16 max-h-[calc(100vh-64px)]">
         <motion.div
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.6 }}
-          className="mb-4"
+          className="mb-6 sm:mb-8"
         >
           <h1 className="text-3xl sm:text-5xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-green-200 to-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.3)]">
             Foosballek
@@ -175,17 +175,16 @@ export default function LoginPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.6 }}
-          className="text-base sm:text-xl text-blue-100 mb-6 text-center"
+          className="text-base sm:text-xl text-blue-100 mb-8 text-center"
         >
           Track stats for your foosball groups
         </motion.div>
         
-        {/* Feature Card Carousel */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.6 }}
-          className="w-full max-w-[78%] sm:max-w-md mb-8 relative"
+          className="w-full max-w-[78%] sm:max-w-md mb-6 relative"
         >
           <Carousel 
             className="w-full" 
@@ -210,7 +209,6 @@ export default function LoginPage() {
                         {feature.description}
                       </CardDescription>
                       
-                      {/* Pagination Dots inside card */}
                       <div className="flex justify-center gap-2 mt-4">
                         {features.map((_, index) => (
                           <button
