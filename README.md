@@ -64,6 +64,21 @@ The project uses GitHub Actions for continuous integration, defined in `.github/
 2. **Backend Testing**: Python Cloud Functions are tested using pytest
 3. **Frontend Testing**: TypeScript code is tested using Jest
 
+## Usage Limits
+
+To ensure fair use and stay within budget, the following limits are enforced:
+
+### Groups
+- Maximum 20 groups per user
+- Group creation rate limited to 1 per minute
+- Maximum 30 guests per group
+
+### Matches
+- Match creation rate limited to 1 every 10 seconds
+- Match queries limited to 100 matches per request
+
+
+These limits help maintain performance and prevent abuse of the system. Additional validation is performed by our backend Cloud Functions.
 
 ## Contributing
 
