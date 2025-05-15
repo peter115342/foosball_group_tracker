@@ -26,6 +26,7 @@ I would like to keep this service free for everyone to use. However, as a studen
 - **Group Management**: Invite friends using unique codes and migrate existing stats from guests to them
 - **Match Tracking**: Record match results and track performance
 - **Statistics**: View statistics about your performance
+- **Export Data**: Export match and stats data in JSON
 
 ## Technology Stack
 
