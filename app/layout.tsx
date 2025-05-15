@@ -16,7 +16,8 @@ export const metadata: Metadata = {
     description: "Track your foosball group scores and stats",
     images: [
       {
-        url: "/images/social-card.png",
+        url:
+"https://foosballek.com/images/social-card.png",
         width: 1200,
         height: 630,
         alt: "Foosballek - Track your foosball group scores and stats",
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Foosballek",
     description: "Track your foosball group scores and stats",
-    images: ["/images/social-card.png"],
+    images: ["https://foosballek.com/images/social-card.png"],
   },
 };
 
