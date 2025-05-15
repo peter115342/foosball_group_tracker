@@ -1,13 +1,14 @@
 # Foosballek
-
-<img src="public\images\logo_trans.png" alt="Foosball Group Tracker Logo" width="150">
-
 ![Python](https://img.shields.io/badge/Python-3.12-green.svg)
 ![GCP](https://img.shields.io/badge/GCP-Powered-blue.svg)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-passing-success.svg)
 ![Firestore](https://img.shields.io/badge/Firestore-yellow?logo=firebase)
 ![Firebase](https://img.shields.io/badge/Firebase-orange?logo=firebase)
 ![Next.js](https://img.shields.io/badge/Next.js-black?logo=next.js)
+
+<p align="center">
+<img src="public\images\logo_trans.png" alt="Foosball Group Tracker Logo" width="164">
+</p>
 
 
 ## About The Project
@@ -28,33 +29,18 @@ I would like to keep this service free for everyone to use. However, as a studen
 
 ## Technology Stack
 
-- **Frontend**:
-
-  - TypeScript
-  - Next.js
-  - Tailwind CSS
-
-- **Backend**:
-
-  - Firebase (Authentication, Firestore)
-  - Google Cloud Functions
-
-- **Testing & CI/CD**:
-
-  - Jest for frontend testing
-  - Pytest for Cloud Functions testing
-  - GitHub Actions for continuous integration
-
-- **Deployment**:
-  - Firebase App Hosting
-  - Cloudflare
-
-## Usage
-
-1. **Sign in**: Use your Google account to sign in
-2. **Create a Group**: Create a foosball group and invite your friends using a code
-3. **Record Matches**: Enter the results of your foosball matches
-4. **View Statistics**: Check your performance statistics and rankings
+| Category | Technologies |
+|----------|--------------|
+| Cloud Platform | Google Cloud Platform (GCP) |
+| Programming Languages | Python, TypeScript (Next.js) |
+| Data Storage | Firestore |
+| Backend | Cloud Functions |
+| CI | GitHub Actions |
+| Package Management | uv, npm |
+| Code Quality | Ruff |
+| Testing | pytest |
+| Web Framework | Next.js, ShadCN UI Components |
+| Hosting | Firebase App Hosting, Cloudflare |
 
 ## Screenshots
 ### Dashboard:
