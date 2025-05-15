@@ -164,9 +164,8 @@
 
   /* For dialogs specifically - adds padding to prevent scrollbar from touching edges */
   .dialog-scrollable {
-    padding-right: 4px;
-    margin-right: -4px;
-    max-height: calc(90vh - 16px);
+    padding-right: 6px;
+    margin-right: -6px;
     overflow-y: auto;
   }
 }
