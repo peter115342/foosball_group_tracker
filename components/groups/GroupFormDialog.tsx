@@ -303,7 +303,7 @@ export default function GroupFormDialog({
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto" hideCloseButton>
         <DialogHeader>
           <DialogTitle>Create New Group</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="mb-1">
             Set the team colors matching your foosball table.
           </DialogDescription>
         </DialogHeader>
