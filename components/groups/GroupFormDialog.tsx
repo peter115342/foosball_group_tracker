@@ -204,9 +204,9 @@ export default function GroupFormDialog({
       return;
     }
     
-    if (createGuestMembers.length > 50) {
+    if (createGuestMembers.length > 30) {
       toast.error("Guest limit exceeded", { 
-        description: "A group can have a maximum of 50 guest players." 
+        description: "A group can have a maximum of 30 guest players." 
       });
       return;
     }
@@ -300,11 +300,11 @@ export default function GroupFormDialog({
       }
       onOpenChange(open);
     }}>
-      <DialogContent className="sm:max-w-[500px]" hideCloseButton>
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto" hideCloseButton>
         <DialogHeader>
           <DialogTitle>Create New Group</DialogTitle>
           <DialogDescription>
-            Create a new group with the colors of your foosball table.
+            Set the team colors matching your foosball table.
           </DialogDescription>
         </DialogHeader>
 
@@ -322,9 +322,9 @@ export default function GroupFormDialog({
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="groupName" className="text-right">Group Name</Label>
-              <div className="col-span-3">
+            <div className="grid sm:grid-cols-4 grid-cols-1 items-center gap-4">
+              <Label htmlFor="groupName" className="sm:text-right text-left">Group Name</Label>
+              <div className="sm:col-span-3">
                 <Input
                   id="groupName"
                   className={cn(
@@ -352,9 +352,9 @@ export default function GroupFormDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="teamOneColor" className="text-right">Team 1 Color</Label>
-              <div className="col-span-3 flex gap-2 items-center">
+            <div className="grid sm:grid-cols-4 grid-cols-1 items-center gap-4">
+              <Label htmlFor="teamOneColor" className="sm:text-right text-left">Team 1 Color</Label>
+              <div className="sm:col-span-3 flex gap-2 items-center">
                 <Input
                   id="teamOneColor"
                   type="color"
@@ -378,9 +378,9 @@ export default function GroupFormDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="teamTwoColor" className="text-right">Team 2 Color</Label>
-              <div className="col-span-3 flex gap-2 items-center">
+            <div className="grid sm:grid-cols-4 grid-cols-1 items-center gap-4">
+              <Label htmlFor="teamTwoColor" className="sm:text-right text-left">Team 2 Color</Label>
+              <div className="sm:col-span-3 flex gap-2 items-center">
                 <Input
                   id="teamTwoColor"
                   type="color"
@@ -404,12 +404,12 @@ export default function GroupFormDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-4 items-start gap-4 mt-2">
-              <div className="flex justify-between items-center col-span-4">
-                <Label className="text-right pt-2">Guest Players</Label>
+            <div className="grid sm:grid-cols-4 grid-cols-1 items-start gap-4 mt-2">
+              <div className="flex justify-between items-center col-span-1 sm:col-span-4">
+                <Label className="sm:text-right text-left pt-2">Guest Players</Label>
                 <span className="text-xs text-muted-foreground">{createGuestMembers.length}/50</span>
               </div>
-              <div className="col-span-4 space-y-3">
+              <div className="sm:col-span-4 col-span-1 space-y-3">
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <Input
