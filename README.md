@@ -39,7 +39,7 @@ I would like to keep this service free for everyone to use. However, as a studen
 | CI                    | GitHub Actions                   |
 | Package Management    | uv, npm                          |
 | Code Quality          | Ruff                             |
-| Testing               | pytest                           |
+| Testing               | pytest, jest                     |
 | Web Framework         | Next.js, ShadCN UI Components    |
 | Hosting               | Firebase App Hosting, Cloudflare |
 
