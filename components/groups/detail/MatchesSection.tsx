@@ -255,7 +255,7 @@ export default function MatchesSection({
                                             match.winner === 'team2' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' :
                                             'bg-gray-100 text-gray-800 dark:bg-gray-700/50 dark:text-gray-300'
                                         }`}>
-                                            {match.winner === 'team1' ? 'Team 1 Wins' : match.winner === 'team2' ? 'Team 2 Wins' : 'Draw'}
+                                            {match.winner === 'team1' ? 'Team 1 Won' : match.winner === 'team2' ? 'Team 2 Won' : 'Draw'}
                                         </span>
                                     )}
                                 </div>
