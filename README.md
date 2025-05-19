@@ -34,12 +34,12 @@ I would like to keep this service free for everyone to use. However, as a studen
 | --------------------- | -------------------------------- |
 | Cloud Platform        | Google Cloud Platform (GCP)      |
 | Programming Languages | Python, TypeScript (Next.js)     |
-| Data Storage          | Firestore                        |
+| Data Storage/Database | Firestore                        |
 | Backend               | Cloud Functions                  |
 | CI                    | GitHub Actions                   |
 | Package Management    | uv, npm                          |
 | Code Quality          | Ruff                             |
-| Testing               | pytest                           |
+| Testing               | pytest, jest                     |
 | Web Framework         | Next.js, ShadCN UI Components    |
 | Hosting               | Firebase App Hosting, Cloudflare |
 
