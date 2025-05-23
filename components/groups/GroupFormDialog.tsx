@@ -339,6 +339,9 @@ export default function GroupFormDialog({
                     pattern: {
                       value: ALPHANUMERIC_REGEX,
                       message: "Group name must contain only letters, numbers, and spaces"
+                    },
+                    validate: {
+                      notOnlyWhitespace: value => value.trim().length > 0 || "Group name cannot be empty or only spaces"
                     }
                   })}
                   disabled={isSubmittingGroup || (rateLimit?.nextAvailable !== null)}
