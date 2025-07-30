@@ -562,7 +562,7 @@ export default function MatchFormDialog({
                                                 disabled={isSubmittingMatch}
                                             >
                                                 <span className="mr-2">1v1</span>
-                                                {field.value === "1v1" && "Match"}
+                                                {field.value === "1v1"}
                                             </Button>
                                             <Button
                                                 type="button"
@@ -572,7 +572,7 @@ export default function MatchFormDialog({
                                                 disabled={isSubmittingMatch}
                                             >
                                                 <span className="mr-2">2v2</span>
-                                                {field.value === "2v2" && "Match"}
+                                                {field.value === "2v2"}
                                             </Button>
                                         </div>
                                     )}
