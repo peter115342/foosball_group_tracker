@@ -212,8 +212,8 @@ export default function MatchesSection({
             return 0;
         };
 
-        const timeA = toMillis(a.playedAt);
-        const timeB = toMillis(b.playedAt);
+        const timeA = toMillis(a.createdAt);
+        const timeB = toMillis(b.createdAt);
 
         return timeB - timeA;
     });

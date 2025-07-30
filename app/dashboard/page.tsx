@@ -122,7 +122,7 @@ export default function DashboardPage() {
               const matchesQuery = query(
                 matchesRef, 
                 where("groupId", "==", group.id),
-                orderBy("playedAt", "desc"), 
+                orderBy("createdAt", "desc"), 
                 limit(1)
               );
               
