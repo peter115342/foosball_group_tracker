@@ -29,9 +29,7 @@ interface PlayerWithPosition {
 interface MatchData {
     id: string;
     groupId: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     createdAt: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     playedAt: any;
     gameType: '1v1' | '2v2';
     team1: {
@@ -101,7 +99,6 @@ const formatPosition = (position?: string, gameType?: string): string => {
     }
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const formatPlayedAt = (timestamp: any) => {
   try {
     if (timestamp && typeof timestamp.toDate === 'function') {
@@ -131,9 +128,21 @@ const formatPlayedAt = (timestamp: any) => {
     }
     return 'Invalid date';
   } catch (err) {
-    console.error("Error formatting date:", err, timestamp);
     return 'Date format error';
   }
+};
+
+const playedAtToMillis = (timestamp: any) => {
+    if (!timestamp) return 0;
+    if (typeof timestamp.toMillis === 'function') return timestamp.toMillis();
+    if (typeof timestamp === 'object' && 'seconds' in timestamp && typeof timestamp.seconds === 'number') {
+        return timestamp.seconds * 1000 + (timestamp.nanoseconds ? Math.floor(timestamp.nanoseconds / 1e6) : 0);
+    }
+    if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+        const date = new Date(timestamp);
+        if (!isNaN(date.getTime())) return date.getTime();
+    }
+    return 0;
 };
 
 export default function MatchesSection({
@@ -188,12 +197,13 @@ export default function MatchesSection({
             setMatchToDelete(null);
             setIsDeleteDialogOpen(false);
         } catch (err) {
-            console.error("Error deleting match:", err);
             toast.error("Error deleting match", { description: (err as Error).message });
             setMatchToDelete(null);
             setIsDeleteDialogOpen(false);
         }
     };
+
+    const sortedMatches = matches.slice().sort((a, b) => playedAtToMillis(b.playedAt) - playedAtToMillis(a.playedAt));
 
     return (
         <div>
@@ -219,8 +229,8 @@ export default function MatchesSection({
                         <Skeleton className="h-24 w-full rounded-lg" />
                         <Skeleton className="h-24 w-full rounded-lg" />
                     </>
-                ) : matches.length > 0 ? (
-                    matches.map((match) => (
+                ) : sortedMatches.length > 0 ? (
+                    sortedMatches.map((match) => (
                         <div key={match.id} className="border rounded-lg p-4 flex flex-col sm:flex-row justify-between sm:items-start gap-4 hover:shadow-sm transition-shadow duration-150">
                             <div className="flex-grow">
                                 <div className="flex items-center gap-x-3 gap-y-1 mb-2 flex-wrap">
