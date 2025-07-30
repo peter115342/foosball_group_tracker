@@ -196,15 +196,16 @@ export default function MatchesSection({
     };
 
     const sortedMatches = [...matches].sort((a, b) => {
-        const toMillis = (ts: any): number => {
+        const toMillis = (ts: unknown): number => {
             if (!ts) return 0;
-            if (typeof ts.toDate === 'function') {
-                return ts.toDate().getTime();
+            if (typeof ts === 'object' && ts !== null && 'toDate' in ts && typeof (ts as { toDate: () => Date }).toDate === 'function') {
+                return (ts as { toDate: () => Date }).toDate().getTime();
             }
-            if (typeof ts.seconds === 'number') {
-                return ts.seconds * 1000 + (ts.nanoseconds || 0) / 1000000;
+            if (typeof ts === 'object' && ts !== null && 'seconds' in ts && typeof (ts as { seconds: number; nanoseconds?: number }).seconds === 'number') {
+                const timestamp = ts as { seconds: number; nanoseconds?: number };
+                return timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000;
             }
-            const date = new Date(ts);
+            const date = new Date(ts as string | number | Date);
             if (!isNaN(date.getTime())) {
                 return date.getTime();
             }
