@@ -10,7 +10,6 @@ import {
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
@@ -22,7 +21,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { BarChart, Calendar, User, TrendingUp, InfoIcon } from 'lucide-react';
+import { BarChart, Calendar, InfoIcon } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import {
     Tooltip,
@@ -202,20 +201,21 @@ export default function StatisticsSection({
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardTitle className="flex items-center gap-2">
-                                    <TrendingUp className="h-5 w-5 text-primary" />
-                                    Longest Win Streak
+                                    <div className="h-5 w-5 rounded-full border border-black dark:border-white" 
+                                         style={{ backgroundColor: Object.entries(groupStats.teamColorStats).sort((a, b) => b[1].winRate - a[1].winRate)[0]?.[0] || '#000' }} />
+                                    Best Team
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                {groupStats.longestWinStreak.count > 0 ? (
+                                {Object.entries(groupStats.teamColorStats).length > 0 ? (
                                     <>
-                                        <div className="text-3xl font-bold">{groupStats.longestWinStreak.count} wins</div>
+                                        <div className="text-3xl font-bold">{Object.entries(groupStats.teamColorStats).sort((a, b) => b[1].winRate - a[1].winRate)[0]?.[1].wins || 0} wins</div>
                                         <div className="text-sm text-muted-foreground mt-1">
-                                            by {groupStats.longestWinStreak.playerName || 'Unknown player'}
+                                            {Math.round((Object.entries(groupStats.teamColorStats).sort((a, b) => b[1].winRate - a[1].winRate)[0]?.[1].winRate || 0) * 100)}% win rate
                                         </div>
                                     </>
                                 ) : (
-                                    <div className="text-sm text-muted-foreground">No win streaks yet</div>
+                                    <div className="text-sm text-muted-foreground">No team data yet</div>
                                 )}
                             </CardContent>
                         </Card>
@@ -243,75 +243,25 @@ export default function StatisticsSection({
                     </div>
 
                     <div className="mb-6">
-                        <h3 className="text-xl font-semibold mb-4">Player Statistics</h3>
-                        
-                        <Card className="mb-4">
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    Player Leaderboard
-                                    <TooltipProvider delayDuration={0} skipDelayDuration={500} disableHoverableContent={false}>
-                                        <Tooltip>
-                                        <TooltipTrigger asChild>
-                                        <button 
-                                            className="inline-flex items-center justify-center rounded-full w-5 h-5 bg-muted hover:bg-muted-foreground/20 transition-colors"
-                                            aria-label="Rating formula info"
-                                        >
-                                            <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                                        </button>
-                                        </TooltipTrigger>
-                                            <TooltipContent className="max-w-[240px]" side="bottom">
-                                                <p><strong>Rating Formula:</strong></p>
-                                                <p className="font-mono text-xs mt-1">{ratingFormula}</p>
-                                            </TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                </CardTitle>
-                                <CardDescription>Top players ranked by rating</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="overflow-x-auto -mx-4 sm:mx-0">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-[60px]">#</TableHead>
-                                                <TableHead>Player</TableHead>
-                                                <TableHead className="w-[80px] text-right">
-                                                    <div className="flex items-center justify-end">
-                                                        Rating
-                                                    </div>
-                                                </TableHead>
-                                                <TableHead className="hidden md:table-cell w-[100px] text-center">W/D/L</TableHead>
-                                                <TableHead className="w-[80px] text-right">Win %</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {Object.entries(groupStats.playerStats)
-                                                .sort((a, b) => b[1].rating - a[1].rating)
-                                                .slice(0, 5)
-                                                .map(([playerId, player], index) => (
-                                                    <TableRow key={playerId}>
-                                                        <TableCell className="font-medium">{index + 1}</TableCell>
-                                                        <TableCell className="max-w-[120px] sm:max-w-none truncate">
-                                                            <div className="flex items-center">
-                                                                <User className="h-4 w-4 mr-2 flex-shrink-0 text-muted-foreground" />
-                                                                <span className="truncate">{player.displayName}</span>
-                                                                {player.isGuest && <span className="ml-1 text-xs text-muted-foreground flex-shrink-0">(G)</span>}
-                                                            </div>
-                                                        </TableCell>
-                                                        <TableCell className="text-right">{player.rating}</TableCell>
-                                                        <TableCell className="hidden md:table-cell text-center">
-                                                            {player.wins}/{player.draws}/{player.losses}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            {Math.round(player.winRate * 100)}%
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
+                        <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                            Player Statistics
+                            <TooltipProvider delayDuration={0} skipDelayDuration={500} disableHoverableContent={false}>
+                                <Tooltip>
+                                <TooltipTrigger asChild>
+                                <button 
+                                    className="inline-flex items-center justify-center rounded-full w-5 h-5 bg-muted hover:bg-muted-foreground/20 transition-colors"
+                                    aria-label="Rating formula info"
+                                >
+                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                </button>
+                                </TooltipTrigger>
+                                    <TooltipContent className="max-w-[240px]" side="bottom">
+                                        <p><strong>Rating Formula:</strong></p>
+                                        <p className="font-mono text-xs mt-1">{ratingFormula}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </h3>
                         
                         <Accordion type="single" collapsible className="w-full">
                             {Object.entries(groupStats.playerStats)
@@ -347,7 +297,7 @@ export default function StatisticsSection({
                                                             <span>Win rate:</span> 
                                                             <span className="font-medium">{Math.round(player.winRate * 100)}%</span>
                                                         </li>
-                                                        <li className="flex justify-between">
+                                                        {/* <li className="flex justify-between">
                                                             <span>Current streak:</span> 
                                                             <span className="font-medium">
                                                                 {player.currentStreak > 0 ? (
@@ -362,7 +312,7 @@ export default function StatisticsSection({
                                                         <li className="flex justify-between">
                                                             <span>Longest win streak:</span> 
                                                             <span className="font-medium">{player.longestWinStreak}</span>
-                                                        </li>
+                                                        </li> */}
                                                     </ul>
                                                 </div>
                                                 <div>
