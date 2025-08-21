@@ -376,11 +376,11 @@ export default function DashboardPage() {
               <div className="flex justify-between items-start mb-2 pl-10">
                 <div>
                   <h2 className="text-xl font-semibold">{group.name}</h2>
-                  {group.lastMatchDate && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Last match: {formatLastMatchDate(group.lastMatchDate)}
-                    </div>
-                  )}
+                  <div className="text-xs text-muted-foreground mt-1 min-h-[16px]">
+                    {group.lastMatchDate && (
+                      <>Last match: {formatLastMatchDate(group.lastMatchDate)}</>
+                    )}
+                  </div>
                 </div>
                 {(user.uid === group.adminUid || group.members[user.uid]?.role === 'editor') && (
                   <DropdownMenu open={openDropdownId === group.id} onOpenChange={(open) => {
