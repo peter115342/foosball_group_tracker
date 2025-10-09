@@ -15,10 +15,6 @@
 
 This is a web application that allows users to track their foosball matches, create groups, and maintain statistics. Deployed at [foosballek.com](https://foosballek.com).
 
-## ⚠️ Disclaimer
-
-I would like to keep this service free for everyone to use. However, as a student, I may not be able to cover all hosting and maintenance costs in the long run. I'll do my best to keep it running without charges, but this might change in the future.
-
 ## Features
 
 - **User Authentication**: Login with Google authentication
