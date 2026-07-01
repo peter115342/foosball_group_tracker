@@ -32,11 +32,10 @@ def migrate_guest_to_member(data, auth):
 
         if group_data.get("adminUid") != requesting_user_id:
             members = group_data.get("members", {})
-            if (
-                requesting_user_id not in members
-                or members[requesting_user_id].get("role") != "admin"
-            ):
-                raise ValueError("Only group admins can migrate guest data")
+            if requesting_user_id not in members or members[requesting_user_id].get(
+                "role"
+            ) not in ["admin", "editor"]:
+                raise ValueError("Only group admins and editors can migrate guest data")
 
         guests = group_data.get("guests", [])
         guest_exists = False

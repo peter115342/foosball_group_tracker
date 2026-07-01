@@ -211,7 +211,7 @@ export default function ManageMembersDialog({
   };
 
   const handleMigrateGuest = async () => {
-    if (!selectedGuest || !selectedMember || !isAdmin) {
+    if (!selectedGuest || !selectedMember || !isEditor) {
       return;
     }
 
@@ -374,7 +374,7 @@ export default function ManageMembersDialog({
               )}
             </div>
 
-            {isAdmin && (
+            {isEditor && (
               <div className="border-t pt-4 mt-4">
                 <h3 className="font-medium mb-3">Migrate Guest to Member</h3>
                 {savedGuests.length === 0 || Object.keys(members).length <= 1 ? (
